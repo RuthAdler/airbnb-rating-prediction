@@ -70,6 +70,35 @@ print(validate_columns_match(datasets))  # True
 
 ---
 
+## Contributing
+
+### 1. Clone the repo (first time only)
+```bash
+git clone https://github.com/RuthAdler/airbnb-rating-prediction.git
+cd airbnb-rating-prediction
+```
+
+### 2. Create your branch
+```bash
+git checkout -b feature/your-feature-name
+```
+Examples: `feature/geo-processing`, `feature/preprocessing`, `feature/visualization`
+
+### 3. Do your work
+Edit your file in `src/`
+
+### 4. Commit and push
+```bash
+git add .
+git commit -m "Your message here"
+git push -u origin feature/your-feature-name
+```
+
+### 5. Open a Pull Request
+Go to GitHub and click "Compare & pull request". Ask a teammate to review.
+
+---
+
 ## Team
 
 - Ruth Adler
