@@ -9,6 +9,7 @@ TODO: Current implementation uses NYC/LA-specific shapefiles.
 
 from sklearn.cluster import KMeans
 import pandas as pd
+import numpy as np
 
 
 def cluster_coordinates(data: "pd.DataFrame") -> "pd.DataFrame":
@@ -20,3 +21,9 @@ def cluster_coordinates(data: "pd.DataFrame") -> "pd.DataFrame":
     data["area"] = kmeans.fit_predict(X)
     return data
 
+def distance_to_center(data: "pd.DataFrame") -> "pd.DataFrame":
+    """Calculate distance from each listing to the city center."""
+
+    city_center = (np.mean(data["longitude"]),np.min(data["latitude"]))
+    data["distance_to_center"] = np.sqrt((data["longitude"] - city_center[0])**2 + (data["latitude"] - city_center[1])**2)
+    return data
