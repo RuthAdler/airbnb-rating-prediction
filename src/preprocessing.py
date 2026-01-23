@@ -13,6 +13,7 @@ import os
 import ast
 import pandas as pd
 import numpy as np
+from pandas.core.interchange.from_dataframe import categorical_column_to_series
 from sklearn.model_selection import train_test_split
 from typing import Tuple
 
@@ -39,8 +40,9 @@ def convert_data_types(df):
 
 
 def remove_duplicates(df):
-    df = df.drop_duplicates()
-    return df
+    subset = [c for c in df.columns if c not in ["amenities", "host_verifications"]]
+    return df.drop_duplicates(subset=subset, keep="first")
+
 
 def split_data(df, test_size=0.25, random_state=42):
     # Drop rows with missing target variable
@@ -101,9 +103,9 @@ def handle_outliers(train_df: pd.DataFrame, test_df: pd.DataFrame) -> Tuple[pd.D
     
     # Fill remaining NaN log_prices using train_df means
     price_mean_map = train_df.groupby(['accommodates', 'city'])['log_price'].mean()
-    train_df['log_price'] = train_df['log_price'].fillna(train_df.set_index(['accommodates', 'city']).index.map(price_mean_map))
-    test_df['log_price'] = test_df['log_price'].fillna(test_df.set_index(['accommodates', 'city']).index.map(price_mean_map))
-    
+    train_df['log_price'] = train_df['log_price'].fillna(train_df[['accommodates', 'city']].apply(tuple, axis=1).map(price_mean_map))
+    test_df['log_price'] = test_df['log_price'].fillna(test_df[['accommodates', 'city']].apply(tuple, axis=1).map(price_mean_map)
+    )
     return train_df, test_df
 
 def feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
@@ -159,5 +161,12 @@ def preprocess_data(df: pd.DataFrame, save_dir: str = 'data/processed') -> Tuple
     train_df.to_csv(f"{save_dir}/4_train_final.csv", index=False)
     test_df.to_csv(f"{save_dir}/4_test_final.csv", index=False)
     print("Saved 4_train_final.csv and 4_test_final.csv")
-    
-    return train_df, test_df
+
+    # Prepare final X and y
+    X_train = train_df.drop(columns=["review_scores_rating"])
+    y_train = train_df["review_scores_rating"]
+
+    X_test = test_df.drop(columns=["review_scores_rating"])
+    y_test = test_df["review_scores_rating"]
+
+    return X_train, X_test, y_train, y_test

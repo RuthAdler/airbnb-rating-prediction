@@ -6,21 +6,28 @@ import pandas as pd
 from pathlib import Path
 
 
-def load_listings(filepath: str) -> pd.DataFrame:
+def load_listings(filepath: str, city: str = None) -> pd.DataFrame:
     """Load a single AirBnB listings CSV file."""
-    return pd.read_csv(filepath)
+    df = pd.read_csv(filepath)
+    if city:
+        df["city"] = city
+    return df
 
 
 def load_all_listings(data_dir: str = "data") -> dict:
     """Load all listing CSV files from a directory."""
     data_path = Path(data_dir)
     datasets = {}
-    
+
     for csv_file in data_path.glob("listings*.csv"):
         city_name = csv_file.stem.replace("listings", "").strip()
-        datasets[city_name] = pd.read_csv(csv_file)
-        print(f"Loaded {city_name}: {datasets[city_name].shape[0]} rows")
-    
+
+        df = pd.read_csv(csv_file)
+        df["city"] = city_name
+
+        datasets[city_name] = df
+        print(f"Loaded {city_name}: {df.shape[0]} rows")
+
     return datasets
 
 

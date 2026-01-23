@@ -1,9 +1,9 @@
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-def evaluate(model, X, y):
+def evaluate(y_true, y_pred):
     """Evaluate the model's performance using MAE and RMSE metrics."""
-    preds = model.predict(X)
     return {
-        "MAE": mean_absolute_error(y, preds),
-        "RMSE": mean_squared_error(y, preds)
+        "MAE": mean_absolute_error(y_true, y_pred),
+        "RMSE": mean_squared_error(y_true, y_pred)
     }
+
