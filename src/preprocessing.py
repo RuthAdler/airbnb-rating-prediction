@@ -2,10 +2,11 @@
 Data preprocessing and cleaning module for AirBnB rating prediction project.
 
 Handles:
+- Data type conversions
+- Duplicate entries
 - Missing values
 - Outliers
-- Data type conversions
-- Feature cleaning
+- Feature engineering
 """
 
 import ast
@@ -30,7 +31,6 @@ def convert_data_types(df):
     # list columns
     df['host_verifications'] = df['host_verifications'].apply(lambda x: ast.literal_eval(x) if pd.notna(x) else x)
     df['amenities'] = df['amenities'].apply(lambda x: ast.literal_eval(x) if pd.notna(x) else x)
-
     return df
 
 
@@ -74,13 +74,37 @@ def handle_missing_values(df, target_col='review_scores_rating') -> pd.DataFrame
         # Remove remaining rows with missing bathrooms
         df = df.loc[df['bathrooms'].notna()]
 
-    # Fill missing bedrooms and beds with median values
-    df['bedrooms'] = df['bedrooms'].fillna(df['bedrooms'].median())
-    df['beds'] = df['beds'].fillna(df['beds'].median())
+    # Fill missing bedrooms and beds with general and groups median values, respectively
+    df['bedrooms'] = df.groupby('accommodates')['bedrooms'].transform(lambda x: x.fillna(x.median()))
+    df['beds'] = df.groupby('accommodates')['beds'].transform(lambda x: x.fillna(x.median()))
 
     # Fill missing host_is_superhost with False (not superhost if missing) 
     df['host_is_superhost'] = df['host_is_superhost'].fillna(False)
 
+    # Encode host_response_time
+    mapping_dict = {'within an hour': 1, 'within a few hours': 2, 'within a day': 3, 'a few days or more': 4}
+    df['host_response_time_coded'] = df['host_response_time'].map(mapping_dict).fillna(0)
+
+    # Impute host response rate and acceptance rate with median values
+    for col in ['host_response_rate', 'host_acceptance_rate']:
+        median_value = df[col].median()
+        df[col] = df[col].fillna(median_value)
+
+    # Create binary indicators for presence of textual features
+    df['has_neighborhood_overview'] = df['neighborhood_overview'].notna()
+    df['has_host_about'] = df['host_about'].notna()
+
+    return df
+
 # TODO: Add outliers handling functions
+def handle_outliers(df):
+    '''Handle outliers in the dataset by applying log transformations.'''
+    df['log_price'] = np.log(df['price'])
+    df['log_price'] = df.groupby(['accommodates', 'city'])['log_price'].transform(lambda x: x.fillna(x.mean()))
+    df['log_host_total_listings_count'] = np.log(df['host_total_listings_count'])
+    df['log_host_listings_count'] = np.log(df['host_listings_count'])
+    return df
 
 # TODO: Add feature engineering functions
+
+# TODO: Remove redundant columns function
