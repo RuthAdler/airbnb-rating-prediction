@@ -1,6 +1,6 @@
-# TODO: Add project dependencies
 pandas
 numpy
 matplotlib
 scikit-learn
 seaborn
+wandb
