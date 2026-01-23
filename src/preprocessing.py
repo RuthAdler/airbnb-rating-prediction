@@ -106,5 +106,21 @@ def handle_outliers(df):
     return df
 
 # TODO: Add feature engineering functions
+def feature_engineering(df):
+    df['description_length_words'] = df['description'].apply(lambda x: len(str(x).split()) if pd.notna(x) else 0)
+    df['description_length_chars'] = df['description'].apply(lambda x: len(str(x)) if pd.notna(x) else 0)
+    return df
 
-# TODO: Remove redundant columns function
+# TODO: Remove redundant and non-numeric columns
+def remove_redundant_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Drop columns that are no longer needed after processing."""
+    cols_to_drop = [
+        'price', 'host_total_listings_count', 'host_listings_count', # Replaced by log versions
+        'description', 'neighborhood_overview', 'host_about', # Replaced by text features
+        'bathrooms_text', 'host_response_time' # Replaced by coded versions
+    ]
+
+    existing_cols = [col for col in cols_to_drop if col in df.columns]
+    return df.drop(columns=existing_cols)
+
+scm-history-item:/Users/ellayakir/Documents/Documents%20-%20Ella%E2%80%99s%20MacBook%20Air/job%20search/YDATA/dsip/airbnb-rating-prediction?%7B%22repositoryId%22%3A%22scm0%22%2C%22historyItemId%22%3A%227a7a85ea47b6d695cdd2c0bf3e0ab6b66c10217e%22%2C%22historyItemParentId%22%3A%22db4efd374d28e127c1537e601d0013583757e530%22%2C%22historyItemDisplayId%22%3A%227a7a85e%22%7D
