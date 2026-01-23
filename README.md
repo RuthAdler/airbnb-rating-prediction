@@ -26,19 +26,29 @@ The instructor (`nebius-franz`) has been added as a collaborator and will test t
 ## Project Structure
 ```
 airbnb-rating-prediction/
-├── README.md
-├── requirements.txt
-├── .gitignore
-├── data/                    # Data files (not tracked in git)
+│
+├── data/
 │   ├── listings LA.csv
 │   └── listings NYC.csv
-├── notebooks/               # Jupyter notebooks
-└── src/                     # Source code modules
-    ├── __init__.py
-    ├── data_loading.py      # Data loading utilities
-    ├── preprocessing.py     # Data cleaning
-    ├── geo_processing.py    # Geographic features
-    └── visualization.py     # Plotting functions
+│
+├── notebooks/
+│   ├── airbnb_baseline.ipynb
+│   └── PClass1 AirBnB EDA.ipynb
+│
+├── src/
+│   ├── __init__.py
+│   ├── data_loading.py
+│   ├── preprocessing.py
+│   ├── geo_processing.py
+│   ├── train.py
+│   ├── predict.py
+│   ├── results.py
+│   └── visualization.py
+│
+├── main.py
+├── README.md
+└── requirements.txt
+
 ```
 
 ---
