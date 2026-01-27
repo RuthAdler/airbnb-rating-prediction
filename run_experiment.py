@@ -157,8 +157,12 @@ def run_experiment(args):
     df = pd.concat(datasets.values(), ignore_index=True)
     
     print("Preprocessing data...")
-    X_train, X_test, y_train, y_test = preprocess_data(df)
-    
+    X_train, X_test, y_train, y_test = preprocess_data(
+        df,
+        test_size=args.test_size,
+        random_state=args.random_state,
+    )
+
     # Remove datetime and non-numeric columns
     numeric_cols_train = X_train.select_dtypes(include=['int64', 'float64', 'bool']).columns
     numeric_cols_test = X_test.select_dtypes(include=['int64', 'float64', 'bool']).columns

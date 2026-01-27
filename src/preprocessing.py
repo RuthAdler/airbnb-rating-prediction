@@ -125,7 +125,7 @@ def remove_redundant_columns(df: pd.DataFrame) -> pd.DataFrame:
     df = df.drop(columns=cols_to_drop + non_numeric_cols, errors='ignore')
     return df
 
-def preprocess_data(df: pd.DataFrame, save_dir: str = 'data/processed') -> Tuple[pd.DataFrame, pd.DataFrame]:
+def preprocess_data(df: pd.DataFrame, save_dir: str = 'data/processed', test_size: float = 0.25, random_state: int = 42) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """Main preprocessing function that saves intermediate CSVs at each step."""
     
     # Create directory if it doesn't exist
@@ -136,7 +136,7 @@ def preprocess_data(df: pd.DataFrame, save_dir: str = 'data/processed') -> Tuple
     df = remove_duplicates(df)
 
     # 2. Split and Save Initial Split
-    train_df, test_df = split_data(df)
+    train_df, test_df = split_data(df, test_size=test_size, random_state=random_state)
     train_df.to_csv(f"{save_dir}/1_train_split.csv", index=False)
     test_df.to_csv(f"{save_dir}/1_test_split.csv", index=False)
     print("Saved 1_train_split.csv and 1_test_split.csv")
