@@ -3,5 +3,7 @@ numpy
 matplotlib
 scikit-learn
 seaborn
-wandbwandb
+wand
 xgboost
+
+joblib
