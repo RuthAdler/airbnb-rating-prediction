@@ -8,10 +8,10 @@ models_with_depth_with_n_estimators = ["random_forest", "xgboost"]
 scalers = ["standard", "robust", "minmax"]
 depths = [None, 10, 20] 
 n_estimators = [50, 100, 200]
-combinations = list(itertools.product(models_with_depth_no_n_estimators, scalers, depths)) + list(itertools.product(models_with_depth_with_n_estimators, scalers, depths, n_estimators)) + list(itertools.product(models_no_depth, scalers))
+combinations = list(itertools.product(models_with_depth_no_n_estimators, scalers, depths, [None])) + list(itertools.product(models_with_depth_with_n_estimators, scalers, depths, n_estimators)) + list(itertools.product(models_no_depth, scalers, [None], [None]))
 
 # Execution loop
-for model, scaler, depth in combinations:
+for model, scaler, depth, n_estimators_val in combinations:
     cmd = [
         sys.executable, "run_experiment.py",
             "--team_member", "Ella Yakir",
@@ -23,5 +23,8 @@ for model, scaler, depth in combinations:
         
     if depth:
         cmd.extend(["--max_depth", str(depth)])
+    if n_estimators_val:
+        cmd.extend(["--n_estimators", str(n_estimators_val)])
+        
     print(f"Running experiment with model: {model}, scaler: {scaler}, max_depth: {depth}")
     subprocess.run(cmd)
