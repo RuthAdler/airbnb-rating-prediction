@@ -2,13 +2,12 @@ import itertools
 import subprocess
 import sys
 
-models_no_depth = ["dummy", "linear_regression", "ridge", "lasso"]
 models_with_depth_no_n_estimators = ["decision_tree"]
 models_with_depth_with_n_estimators = ["random_forest", "xgboost"]
 scalers = ["standard", "robust", "minmax"]
 depths = [None, 10, 20] 
 n_estimators = [50, 100, 200]
-combinations = list(itertools.product(models_with_depth_no_n_estimators, scalers, depths, [None])) + list(itertools.product(models_with_depth_with_n_estimators, scalers, depths, n_estimators)) + list(itertools.product(models_no_depth, scalers, [None], [None]))
+combinations = list(itertools.product(models_with_depth_no_n_estimators, scalers, depths, [None])) + list(itertools.product(models_with_depth_with_n_estimators, scalers, depths, n_estimators))
 
 # Execution loop
 for model, scaler, depth, n_estimators_val in combinations:
