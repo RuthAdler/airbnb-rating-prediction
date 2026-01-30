@@ -3,10 +3,12 @@ import subprocess
 import sys
 
 models_no_depth = ["dummy", "linear_regression", "ridge", "lasso"]
-models_with_depth = ["decision_tree", "random_forest", "xgboost"]
+models_with_depth_no_n_estimators = ["decision_tree"]
+models_with_depth_with_n_estimators = ["random_forest", "xgboost"]
 scalers = ["standard", "robust", "minmax"]
 depths = [None, 10, 20] 
-combinations = list(itertools.product(models_with_depth, scalers, depths)) + list(itertools.product(models_no_depth, scalers, [None]))
+n_estimators = [50, 100, 200]
+combinations = list(itertools.product(models_with_depth_no_n_estimators, scalers, depths)) + list(itertools.product(models_with_depth_with_n_estimators, scalers, depths, n_estimators)) + list(itertools.product(models_no_depth, scalers))
 
 # Execution loop
 for model, scaler, depth in combinations:
