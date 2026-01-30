@@ -19,6 +19,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 from src.data_loading import load_all_listings
 from src.preprocessing import preprocess_data
+from src.feature_sets import apply_feature_set
 
 # Suppress warnings for cleaner output
 warnings.filterwarnings('ignore')
@@ -26,6 +27,7 @@ warnings.filterwarnings('ignore')
 # Try to import XGBoost (optional)
 try:
     from xgboost import XGBRegressor
+
     XGBOOST_AVAILABLE = True
 except ImportError:
     XGBOOST_AVAILABLE = False
@@ -35,25 +37,25 @@ except ImportError:
 def get_model(config):
     """Return a model instance based on config."""
     model_name = config.model
-    
+
     if model_name == "dummy":
         return DummyRegressor(strategy="mean")
-    
+
     elif model_name == "linear_regression":
         return LinearRegression()
-    
+
     elif model_name == "ridge":
         return Ridge(alpha=config.alpha, random_state=config.random_state)
-    
+
     elif model_name == "lasso":
         return Lasso(alpha=config.alpha, random_state=config.random_state)
-    
+
     elif model_name == "decision_tree":
         return DecisionTreeRegressor(
             max_depth=config.max_depth,
             random_state=config.random_state
         )
-    
+
     elif model_name == "random_forest":
         return RandomForestRegressor(
             n_estimators=config.n_estimators,
@@ -61,7 +63,7 @@ def get_model(config):
             random_state=config.random_state,
             n_jobs=-1
         )
-    
+
     elif model_name == "xgboost":
         if not XGBOOST_AVAILABLE:
             raise ValueError("XGBoost not installed. Use: pip install xgboost")
@@ -72,7 +74,7 @@ def get_model(config):
             random_state=config.random_state,
             n_jobs=-1
         )
-    
+
     else:
         raise ValueError(f"Unknown model: {model_name}")
 
@@ -100,10 +102,8 @@ def evaluate(y_true, y_pred):
     }
 
 
-def run_experiment(args):
-    """Run a single experiment with W&B tracking."""
-    
-    # Create descriptive run name
+def create_run_name(args):
+    """Create a descriptive run name based on arguments."""
     run_name = f"{args.team_member}_{args.model}"
     if args.model in ["ridge", "lasso"]:
         run_name += f"_alpha{args.alpha}"
@@ -114,25 +114,22 @@ def run_experiment(args):
     if args.model == "xgboost":
         run_name += f"_lr{args.learning_rate}"
     run_name += f"_{args.scaler}"
-    
-    # Initialize W&B
+    run_name += f"_{args.dataset_version}"
+    return run_name
+
+
+def initialize_wandb(args, run_name):
+    """Initialize Weights & Biases run."""
     run = wandb.init(
         project="airbnb-rating-prediction",
-        name=run_name,  # Custom descriptive name
+        name=run_name,
         config={
-            # Team info
             "team_member": args.team_member,
-            
-            # Data config
             "dataset_version": args.dataset_version,
             "test_size": args.test_size,
             "random_state": args.random_state,
-            
-            # Model config
             "model": args.model,
             "scaler": args.scaler,
-            
-            # Model hyperparameters
             "alpha": args.alpha,
             "max_depth": args.max_depth,
             "n_estimators": args.n_estimators,
@@ -141,93 +138,193 @@ def run_experiment(args):
         tags=[args.team_member, args.model, args.scaler, args.dataset_version],
         notes=args.notes
     )
-    
+    return run
+
+
+def print_experiment_header(run):
+    """Print experiment information header."""
     config = wandb.config
-    
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Running experiment: {run.name}")
     print(f"Team member: {config.team_member}")
     print(f"Model: {config.model}")
     print(f"Scaler: {config.scaler}")
-    print(f"{'='*60}\n")
-    
-    # Load and preprocess data
+    print(f"{'=' * 60}\n")
+
+
+def load_and_preprocess(args):
+    """Load and preprocess data."""
     print("Loading data...")
     datasets = load_all_listings("data")
     df = pd.concat(datasets.values(), ignore_index=True)
-    
+
     print("Preprocessing data...")
     X_train, X_test, y_train, y_test = preprocess_data(
         df,
         test_size=args.test_size,
         random_state=args.random_state,
     )
+    return X_train, X_test, y_train, y_test
 
-    # Remove datetime and non-numeric columns
+
+def select_common_features(X_train, X_test):
+    """Select numeric features common to both train and test sets."""
     numeric_cols_train = X_train.select_dtypes(include=['int64', 'float64', 'bool']).columns
     numeric_cols_test = X_test.select_dtypes(include=['int64', 'float64', 'bool']).columns
-    
-    # Use only columns that exist in BOTH train and test
+
     common_cols = list(set(numeric_cols_train) & set(numeric_cols_test))
-    common_cols = sorted(common_cols)  # Ensure consistent order
-    
+    common_cols = sorted(common_cols)
+
     X_train = X_train[common_cols]
     X_test = X_test[common_cols]
-    
+
     print(f"Using {len(common_cols)} numeric features")
-    
-    # Log dataset info
-    wandb.log({
-        "train_samples": len(X_train),
-        "test_samples": len(X_test),
-        "n_features": X_train.shape[1]
-    })
-    
-    # Handle any remaining NaN values
+    return X_train, X_test
+
+
+def clean_data(X_train, X_test):
+    """Handle NaN, infinite values, and clip extreme values."""
     X_train = X_train.fillna(0)
     X_test = X_test.fillna(0)
-    
-    # Handle infinite values
+
     X_train = X_train.replace([np.inf, -np.inf], 0)
     X_test = X_test.replace([np.inf, -np.inf], 0)
-    
-    # Convert boolean to int
+
     X_train = X_train.astype(float)
     X_test = X_test.astype(float)
-    
-    # Clip extreme values (some columns have values like 2147483647)
+
+    # Clip extreme values based on 1st and 99th percentiles
     for col in X_train.columns:
         p99_train = X_train[col].quantile(0.99)
         p1_train = X_train[col].quantile(0.01)
         X_train[col] = X_train[col].clip(lower=p1_train, upper=p99_train)
         X_test[col] = X_test[col].clip(lower=p1_train, upper=p99_train)
-    
-    # Apply scaler
-    scaler = get_scaler(config.scaler)
+
+    return X_train, X_test
+
+
+def scale_features(X_train, X_test, scaler_name):
+    """Apply scaling to features."""
+    scaler = get_scaler(scaler_name)
     if scaler is not None:
-        print(f"Applying {config.scaler} scaler...")
+        print(f"Applying {scaler_name} scaler...")
         X_train_scaled = scaler.fit_transform(X_train)
         X_test_scaled = scaler.transform(X_test)
     else:
         X_train_scaled = X_train.values
         X_test_scaled = X_test.values
-    
-    # Get model
-    print(f"Training {config.model} model...")
-    model = get_model(config)
-    
-    # Train
+
+    return X_train_scaled, X_test_scaled
+
+
+def train_and_predict(model, X_train_scaled, X_test_scaled, y_train):
+    """Train model and generate predictions."""
     model.fit(X_train_scaled, y_train)
-    
-    # Predict
     y_train_pred = model.predict(X_train_scaled)
     y_test_pred = model.predict(X_test_scaled)
-    
-    # Evaluate
+    return y_train_pred, y_test_pred
+
+
+def print_results(train_metrics, test_metrics, run):
+    """Print evaluation results."""
+    print(f"\n{'=' * 60}")
+    print("RESULTS")
+    print(f"{'=' * 60}")
+    print(f"Train RMSE: {train_metrics['RMSE']:.4f}")
+    print(f"Test RMSE:  {test_metrics['RMSE']:.4f}")
+    print(f"Train MAE:  {train_metrics['MAE']:.4f}")
+    print(f"Test MAE:   {test_metrics['MAE']:.4f}")
+    print(f"{'=' * 60}")
+    print(f"\nView run at: {run.url}")
+
+
+def log_feature_importances(model, X_train):
+    """Log feature importances for tree-based models."""
+    if hasattr(model, 'feature_importances_'):
+        feature_names = X_train.columns.tolist()
+        importances = model.feature_importances_
+
+        importance_df = pd.DataFrame({
+            'feature': feature_names,
+            'importance': importances
+        }).sort_values('importance', ascending=False)
+
+        wandb.log({
+            "feature_importances": wandb.Table(dataframe=importance_df.head(20))
+        })
+
+        print("\nTop 10 Important Features:")
+        for i, row in importance_df.head(10).iterrows():
+            print(f"  {row['feature']}: {row['importance']:.4f}")
+
+
+def log_linear_coefs_to_wandb(model, feature_names, top_k=30):
+    """Log linear model coefficients to W&B."""
+    if not hasattr(model, "coef_"):
+        return
+
+    coefs = np.asarray(model.coef_).ravel()
+    df = pd.DataFrame({
+        "feature": feature_names,
+        "coef": coefs,
+        "abs_coef": np.abs(coefs),
+    }).sort_values("abs_coef", ascending=False)
+
+    wandb.log({
+        "top_feature": df.iloc[0]["feature"],
+        "top_abs_coef": float(df.iloc[0]["abs_coef"]),
+        "coefs_table": wandb.Table(dataframe=df.head(top_k)),
+    })
+
+
+def run_experiment(args):
+    """Run a single experiment with W&B tracking."""
+    run_name = create_run_name(args)
+    run = initialize_wandb(args, run_name)
+    print_experiment_header(run)
+
+    X_train, X_test, y_train, y_test = load_and_preprocess(args)
+
+    # Keep only common numeric columns
+    X_train, X_test = select_common_features(X_train, X_test)
+
+    # Apply dataset version feature set
+    X_train = apply_feature_set(X_train, args.dataset_version)
+    X_test = apply_feature_set(X_test, args.dataset_version)
+
+    # Log dataset info + features (before cleaning/scaling)
+    feature_names = X_train.columns.tolist()
+
+    wandb.log({
+        "train_samples": len(X_train),
+        "test_samples": len(X_test),
+        "n_features": len(feature_names),
+        "features_preview": ", ".join(feature_names),
+    })
+
+    features_df = pd.DataFrame({"feature": feature_names})
+    wandb.log({"features_table": wandb.Table(dataframe=features_df)})
+
+    with open("features_used.txt", "w", encoding="utf-8") as f:
+        f.write("\n".join(feature_names))
+    wandb.save("features_used.txt")
+
+    # Clean (NaN/inf/clip) and continue
+    X_train, X_test = clean_data(X_train, X_test)
+
+    config = wandb.config
+    X_train_scaled, X_test_scaled = scale_features(X_train, X_test, config.scaler)
+
+    print(f"Training {config.model} model...")
+    model = get_model(config)
+    y_train_pred, y_test_pred = train_and_predict(model, X_train_scaled, X_test_scaled, y_train)
+
+    if wandb.config.model in {"linear_regression", "ridge", "lasso"}:
+        log_linear_coefs_to_wandb(model, X_train.columns.tolist())
+
     train_metrics = evaluate(y_train, y_train_pred)
     test_metrics = evaluate(y_test, y_test_pred)
-    
-    # Log metrics to W&B
+
     wandb.log({
         "train_MAE": train_metrics["MAE"],
         "train_RMSE": train_metrics["RMSE"],
@@ -236,62 +333,32 @@ def run_experiment(args):
         "test_RMSE": test_metrics["RMSE"],
         "test_MSE": test_metrics["MSE"],
     })
-    
-    # Print results
-    print(f"\n{'='*60}")
-    print("RESULTS")
-    print(f"{'='*60}")
-    print(f"Train RMSE: {train_metrics['RMSE']:.4f}")
-    print(f"Test RMSE:  {test_metrics['RMSE']:.4f}")
-    print(f"Train MAE:  {train_metrics['MAE']:.4f}")
-    print(f"Test MAE:   {test_metrics['MAE']:.4f}")
-    print(f"{'='*60}")
-    print(f"\nView run at: {run.url}")
-    
-    # Log feature importances for tree models
-    if hasattr(model, 'feature_importances_'):
-        feature_names = X_train.columns.tolist()
-        importances = model.feature_importances_
-        
-        # Create feature importance table
-        importance_df = pd.DataFrame({
-            'feature': feature_names,
-            'importance': importances
-        }).sort_values('importance', ascending=False)
-        
-        # Log top 20 features
-        wandb.log({
-            "feature_importances": wandb.Table(dataframe=importance_df.head(20))
-        })
-        
-        print("\nTop 10 Important Features:")
-        for i, row in importance_df.head(10).iterrows():
-            print(f"  {row['feature']}: {row['importance']:.4f}")
-    
-    # Finish the run
+
+    print_results(train_metrics, test_metrics, run)
+    log_feature_importances(model, X_train)
+
     wandb.finish()
-    
     return test_metrics
 
 
 def main():
     parser = argparse.ArgumentParser(description="Run ML experiment with W&B tracking")
-    
+
     # Required
     parser.add_argument("--team_member", type=str, required=True,
                         help="Your name (e.g., 'Ruth')")
-    
+
     # Model selection
     parser.add_argument("--model", type=str, default="dummy",
-                        choices=["dummy", "linear_regression", "ridge", "lasso", 
-                                "decision_tree", "random_forest", "xgboost"],
+                        choices=["dummy", "linear_regression", "ridge", "lasso",
+                                 "decision_tree", "random_forest", "xgboost"],
                         help="Model type to use")
-    
+
     # Preprocessing
     parser.add_argument("--scaler", type=str, default="standard",
                         choices=["none", "standard", "robust", "minmax"],
                         help="Scaler to use")
-    
+
     # Data config
     parser.add_argument("--dataset_version", type=str, default="v1",
                         help="Dataset version identifier")
@@ -299,7 +366,7 @@ def main():
                         help="Test set size (0.0-1.0)")
     parser.add_argument("--random_state", type=int, default=42,
                         help="Random seed for reproducibility")
-    
+
     # Model hyperparameters
     parser.add_argument("--alpha", type=float, default=1.0,
                         help="Regularization strength for Ridge/Lasso")
@@ -309,13 +376,13 @@ def main():
                         help="Number of trees for ensemble models")
     parser.add_argument("--learning_rate", type=float, default=0.1,
                         help="Learning rate for XGBoost")
-    
+
     # Optional
     parser.add_argument("--notes", type=str, default="",
                         help="Notes about this experiment")
-    
+
     args = parser.parse_args()
-    
+
     # Run the experiment
     run_experiment(args)
 

@@ -3,9 +3,9 @@ Geographic processing module for AirBnB rating prediction project.
 """
 
 from sklearn.cluster import KMeans
-import pandas as pd
 import numpy as np
-
+import pandas as pd
+from typing import Tuple
 
 def cluster_coordinates(data: "pd.DataFrame") -> "pd.DataFrame":
     """Cluster listings based on their geographic coordinates."""
@@ -15,12 +15,13 @@ def cluster_coordinates(data: "pd.DataFrame") -> "pd.DataFrame":
     data["area"] = kmeans.fit_predict(X)
     return data
 
-def distance_to_center(data: "pd.DataFrame") -> "pd.DataFrame":
-    """Calculate distance from each listing to the city center."""
 
-    city_center = (
-        data["longitude"].mean(),
-        data["latitude"].mean()
-    )
-    data["distance_to_center"] = np.sqrt((data["longitude"] - city_center[0])**2 + (data["latitude"] - city_center[1])**2)
-    return data
+
+def fit_city_center(train_df: pd.DataFrame) -> Tuple[float, float]:
+    return train_df["longitude"].mean(), train_df["latitude"].mean()
+
+def add_distance_to_center(df: pd.DataFrame, center: Tuple[float, float]) -> pd.DataFrame:
+    lon0, lat0 = center
+    df = df.copy()
+    df["distance_to_center"] = np.sqrt((df["longitude"] - lon0)**2 + (df["latitude"] - lat0)**2)
+    return df
