@@ -1,4 +1,10 @@
-def train(model,X_train,y_train):
-    """Train the given model with the provided training data."""
+import joblib
+
+def train(model, X_train, y_train):
     model.fit(X_train, y_train)
+    return model
+
+def train_and_save(model, X_train, y_train, path):
+    model.fit(X_train, y_train)
+    joblib.dump(model, path)
     return model
