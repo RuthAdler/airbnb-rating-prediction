@@ -3,6 +3,10 @@ pandas
 numpy
 matplotlib
 seaborn
+wand
+xgboost
+
+joblib
 scikit-learn
 
 # ML Models
