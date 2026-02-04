@@ -168,33 +168,8 @@ def load_and_preprocess(args):
     return X_train, X_test, y_train, y_test
 
 
-def select_common_features(X_train, X_test):
-    """Select numeric features common to both train and test sets."""
-    numeric_cols_train = X_train.select_dtypes(include=['int64', 'float64', 'bool']).columns
-    numeric_cols_test = X_test.select_dtypes(include=['int64', 'float64', 'bool']).columns
-
-    common_cols = list(set(numeric_cols_train) & set(numeric_cols_test))
-    common_cols = sorted(common_cols)
-
-    X_train = X_train[common_cols]
-    X_test = X_test[common_cols]
-
-    print(f"Using {len(common_cols)} numeric features")
-    return X_train, X_test
-
-
 def clean_data(X_train, X_test):
-    """Handle NaN, infinite values, and clip extreme values."""
-    X_train = X_train.fillna(0)
-    X_test = X_test.fillna(0)
-
-    X_train = X_train.replace([np.inf, -np.inf], 0)
-    X_test = X_test.replace([np.inf, -np.inf], 0)
-
-    X_train = X_train.astype(float)
-    X_test = X_test.astype(float)
-
-    # Clip extreme values based on 1st and 99th percentiles
+    """Clean data by handling NaN/inf and clipping extreme values."""
     for col in X_train.columns:
         p99_train = X_train[col].quantile(0.99)
         p1_train = X_train[col].quantile(0.01)
@@ -285,9 +260,6 @@ def run_experiment(args):
     print_experiment_header(run)
 
     X_train, X_test, y_train, y_test = load_and_preprocess(args)
-
-    # Keep only common numeric columns
-    X_train, X_test = select_common_features(X_train, X_test)
 
     # Apply dataset version feature set
     X_train = apply_feature_set(X_train, args.dataset_version)

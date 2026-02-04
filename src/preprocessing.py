@@ -125,7 +125,6 @@ def feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# TODO: Remove redundant and non-numeric columns
 def remove_redundant_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Drop columns that are no longer needed after processing."""
     cols_to_drop = [
@@ -136,6 +135,20 @@ def remove_redundant_columns(df: pd.DataFrame) -> pd.DataFrame:
     non_numeric_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
     df = df.drop(columns=cols_to_drop + non_numeric_cols, errors='ignore')
     return df
+
+def select_common_features(X_train, X_test):
+    """Select numeric features common to both train and test sets."""
+    numeric_cols_train = X_train.select_dtypes(include=['int64', 'float64', 'bool']).columns
+    numeric_cols_test = X_test.select_dtypes(include=['int64', 'float64', 'bool']).columns
+
+    common_cols = list(set(numeric_cols_train) & set(numeric_cols_test))
+    common_cols = sorted(common_cols)
+
+    X_train = X_train[common_cols]
+    X_test = X_test[common_cols]
+
+    print(f"Using {len(common_cols)} numeric features")
+    return X_train, X_test
 
 
 def preprocess_data(df: pd.DataFrame, save_dir: str = 'data/processed', test_size: float = 0.25,
@@ -188,5 +201,19 @@ def preprocess_data(df: pd.DataFrame, save_dir: str = 'data/processed', test_siz
 
     X_test = test_df.drop(columns=["review_scores_rating"])
     y_test = test_df["review_scores_rating"]
+    X_train, X_test = select_common_features(X_train, X_test)
+
+    X_train = X_train.fillna(0)
+    X_test = X_test.fillna(0)
+
+    X_train = X_train.replace([np.inf, -np.inf], 0)
+    X_test = X_test.replace([np.inf, -np.inf], 0)
+
+    X_train = X_train.astype(float)
+    X_test = X_test.astype(float)
+
+    datetime_cols = X_train.select_dtypes(include=["datetime64[ns]"]).columns
+    X_train = X_train.drop(columns=datetime_cols)
+    X_test = X_test.drop(columns=datetime_cols)
 
     return X_train, X_test, y_train, y_test
