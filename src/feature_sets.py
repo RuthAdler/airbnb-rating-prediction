@@ -1,4 +1,6 @@
-"""Feature set selection for different dataset versions."""
+"""
+Feature set selection for different dataset versions.
+"""
 
 import pandas as pd
 
