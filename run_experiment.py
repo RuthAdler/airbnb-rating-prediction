@@ -126,6 +126,7 @@ def initialize_wandb(args, run_name):
         config={
             "team_member": args.team_member,
             "dataset_version": args.dataset_version,
+            "features": args.dataset_version,
             "test_size": args.test_size,
             "random_state": args.random_state,
             "model": args.model,
@@ -301,9 +302,6 @@ def run_experiment(args):
         "n_features": len(feature_names),
         "features_preview": ", ".join(feature_names),
     })
-
-    features_df = pd.DataFrame({"feature": feature_names})
-    wandb.log({"features_table": wandb.Table(dataframe=features_df)})
 
     with open("features_used.txt", "w", encoding="utf-8") as f:
         f.write("\n".join(feature_names))
