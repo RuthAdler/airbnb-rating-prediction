@@ -1,9 +1,25 @@
+# Core data science
 pandas
 numpy
 matplotlib
-scikit-learn
 seaborn
 wand
 xgboost
 
 joblib
+scikit-learn
+
+# ML Models
+xgboost
+
+# Experiment tracking
+wandb
+
+# Model serialization
+joblib
+
+# Web app
+streamlit
+
+# Utilities
+pathlib
