@@ -1,6 +1,7 @@
-# main.py  (גרסה מקצועית)
+"""
+Main script to load data, preprocess, train the model, and save it.
+"""
 import pandas as pd
-import joblib
 
 from src.data_loading import load_all_listings
 from src.preprocessing import preprocess_data
