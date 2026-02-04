@@ -3,7 +3,6 @@ pandas
 numpy
 matplotlib
 seaborn
-wand
 xgboost
 
 joblib
