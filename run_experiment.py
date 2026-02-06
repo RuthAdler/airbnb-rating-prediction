@@ -152,7 +152,6 @@ def print_experiment_header(run):
     print(f"Scaler: {config.scaler}")
     print(f"{'=' * 60}\n")
 
-
 def load_and_preprocess(args):
     """Load and preprocess data."""
     print("Loading data...")
@@ -190,7 +189,7 @@ def scale_features(X_train, X_test, scaler_name):
         X_train_scaled = X_train.values
         X_test_scaled = X_test.values
 
-    return X_train_scaled, X_test_scaled
+    return X_train_scaled, X_test_scaled, scaler
 
 
 def train_and_predict(model, X_train_scaled, X_test_scaled, y_train):
@@ -283,7 +282,7 @@ def run_experiment(args):
     X_train, X_test = clean_data(X_train, X_test)
 
     config = wandb.config
-    X_train_scaled, X_test_scaled = scale_features(X_train, X_test, config.scaler)
+    X_train_scaled, X_test_scaled, scaler = scale_features(X_train, X_test, config.scaler) 
 
     print(f"Training {config.model} model...")
     model = get_model(config)
@@ -306,6 +305,25 @@ def run_experiment(args):
 
     print_results(train_metrics, test_metrics, run)
     log_feature_importances(model, X_train)
+
+    import joblib
+    import os
+
+    # Create models directory
+    os.makedirs('models', exist_ok=True)
+
+    # Save the model
+    joblib.dump(model, 'models/best_model.pkl')
+    print("Saved: models/best_model.pkl")
+
+    # Save the scaler
+    if scaler is not None:
+        joblib.dump(scaler, 'models/scaler.pkl')
+        print("Saved: models/scaler.pkl")
+
+    # Save feature columns
+    joblib.dump(X_train.columns.tolist(), 'models/feature_columns.pkl')
+    print("Saved: models/feature_columns.pkl")
 
     wandb.finish()
     return test_metrics
