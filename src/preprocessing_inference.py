@@ -10,7 +10,7 @@ This is different from training preprocessing because:
 import pandas as pd
 import numpy as np
 import ast
-from src.geo_preprocessing import add_distance_to_center
+from src.geo_processing import add_distance_to_center
 
 # Fixed values from training data - use these for filling missing values
 IMPUTATION_VALUES = {
