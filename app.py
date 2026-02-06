@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import joblib
+import os
 from predictor.pipeline import predict
 from predictor.config import DEFAULT_MODEL_PATH
 from src.preprocessing_inference import preprocess_for_inference
@@ -18,8 +19,16 @@ st.set_page_config(page_title="AirBnB Rating Predictor", layout="centered")
 # Load the model and scaler (this only runs once)
 @st.cache_resource
 def load_resources():
-    model = joblib.load('models/scaler.pkl')
-    scaler = joblib.load('models/best_model.pkl')
+# Get the folder containing this script
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Construct the full paths
+    model_path = os.path.join(current_dir, 'models', 'best_model.pkl') 
+    scaler_path = os.path.join(current_dir, 'models', 'scaler.pkl')
+
+    # Load
+    model = joblib.load(model_path)
+    scaler = joblib.load(scaler_path)
     return model, scaler
 
 # Main app
@@ -28,7 +37,7 @@ st.write("Upload a CSV file with AirBnB listings to get rating predictions.")
 
 # Try to load the model
 try:
-    model, scaler = load_model()
+    model, scaler = load_resources()
     st.success("Model loaded successfully")
 except Exception as e:
     st.error(f"Could not load model: {e}")
