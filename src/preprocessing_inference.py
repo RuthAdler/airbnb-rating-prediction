@@ -10,7 +10,7 @@ This is different from training preprocessing because:
 import pandas as pd
 import numpy as np
 import ast
-
+from src.geo_preprocessing import add_distance_to_center
 
 # Fixed values from training data - use these for filling missing values
 IMPUTATION_VALUES = {
@@ -24,14 +24,13 @@ IMPUTATION_VALUES = {
     'longitude_default': -118.25,
 }
 
-# These are the EXACT 27 features the model was trained on
+# These are the EXACT 25 features the model was trained on
 FEATURE_COLUMNS = [
     'accommodates',
     'bathrooms',
     'bedrooms',
     'beds',
-    'description_length_chars',
-    'description_length_words',
+    'distance_to_center',           # Calculated below
     'estimated_occupancy_l365d',
     'has_host_about',
     'has_neighborhood_overview',
@@ -39,12 +38,11 @@ FEATURE_COLUMNS = [
     'host_is_superhost',
     'host_response_rate',
     'host_response_time_coded',
+    'host_tenure_days',             # Calculated below
     'instant_bookable',
-    'latitude',
     'log_host_listings_count',
     'log_host_total_listings_count',
     'log_price',
-    'longitude',
     'maximum_maximum_nights',
     'maximum_minimum_nights',
     'maximum_nights',
@@ -52,7 +50,7 @@ FEATURE_COLUMNS = [
     'minimum_maximum_nights',
     'minimum_minimum_nights',
     'minimum_nights',
-    'minimum_nights_avg_ntm',
+    'minimum_nights_avg_ntm'
 ]
 
 
@@ -87,68 +85,62 @@ def create_features(df):
     """Create engineered features."""
     df = df.copy()
     
-    # Host response time coded
+    # 1. Host Response Time
     if 'host_response_time' in df.columns:
-        mapping_dict = {
+        mapping = {
             'within an hour': 1, 
             'within a few hours': 2, 
             'within a day': 3, 
             'a few days or more': 4
         }
-        df['host_response_time_coded'] = df['host_response_time'].map(mapping_dict).fillna(0)
+        df['host_response_time_coded'] = df['host_response_time'].map(mapping).fillna(0)
     else:
         df['host_response_time_coded'] = 0
     
-    # Has neighborhood overview (boolean to int)
-    if 'neighborhood_overview' in df.columns:
-        df['has_neighborhood_overview'] = df['neighborhood_overview'].notna()
-    else:
-        df['has_neighborhood_overview'] = False
+    # 2. Booleans
+    df['has_neighborhood_overview'] = df['neighborhood_overview'].notna() if 'neighborhood_overview' in df.columns else False
+    df['has_host_about'] = df['host_about'].notna() if 'host_about' in df.columns else False
     
-    # Has host about (boolean to int)
-    if 'host_about' in df.columns:
-        df['has_host_about'] = df['host_about'].notna()
-    else:
-        df['has_host_about'] = False
-    
-    # Log price
+    # 3. Log Price
     if 'price' in df.columns:
-        # Clip to avoid log(0)
         df['log_price'] = np.log(df['price'].clip(lower=1))
         df['log_price'] = df['log_price'].fillna(IMPUTATION_VALUES['log_price_default'])
     else:
         df['log_price'] = IMPUTATION_VALUES['log_price_default']
     
-    # Log host listings count
-    if 'host_total_listings_count' in df.columns:
-        df['log_host_total_listings_count'] = np.log(df['host_total_listings_count'].fillna(1) + 1)
-    else:
-        df['log_host_total_listings_count'] = 0
-    
-    if 'host_listings_count' in df.columns:
-        df['log_host_listings_count'] = np.log(df['host_listings_count'].fillna(1) + 1)
-    else:
-        df['log_host_listings_count'] = 0
-    
-    # Description length
-    if 'description' in df.columns:
-        df['description_length_words'] = df['description'].apply(
-            lambda x: len(str(x).split()) if pd.notna(x) else 0
-        )
-        df['description_length_chars'] = df['description'].apply(
-            lambda x: len(str(x)) if pd.notna(x) else 0
-        )
-    else:
-        df['description_length_words'] = 0
-        df['description_length_chars'] = 0
-    
-    # Estimated occupancy
+    # 4. Log Host Listings
+    for col in ['host_total_listings_count', 'host_listings_count']:
+        new_col = f"log_{col}"
+        if col in df.columns:
+            df[new_col] = np.log(df[col].fillna(1) + 1)
+        else:
+            df[new_col] = 0
+
+    # 5. Occupancy
     if 'availability_365' in df.columns:
-        df['estimated_occupancy_l365d'] = 365 - df['availability_365']
-        df['estimated_occupancy_l365d'] = df['estimated_occupancy_l365d'].fillna(0)
-    elif 'estimated_occupancy_l365d' not in df.columns:
+        df['estimated_occupancy_l365d'] = (365 - df['availability_365']).fillna(0)
+    else:
         df['estimated_occupancy_l365d'] = 0
     
+    # 6. Host Tenure Days
+    if 'host_since' in df.columns:
+        ref_date = df['last_scraped'] if 'last_scraped' in df.columns else pd.Timestamp.now()
+        df['host_tenure_days'] = (ref_date - df['host_since']).dt.days.fillna(0)
+    else:
+        df['host_tenure_days'] = 0
+
+    # 7. Distance to Center (Matches logic in geo_preprocessing.py)
+    # We use fixed coordinates because we don't have the training data at inference time
+    if 'latitude' in df.columns and 'longitude' in df.columns:
+        # Match keys in IMPUTATION_VALUES
+        center = (IMPUTATION_VALUES['longitude_default'], IMPUTATION_VALUES['latitude_default'])
+            
+        # Call the imported function
+        df = add_distance_to_center(df, center)
+        df['distance_to_center'] = df['distance_to_center'].fillna(0)
+    else:
+        df['distance_to_center'] = 0
+
     return df
 
 
@@ -206,7 +198,7 @@ def handle_missing_values(df):
 
 
 def select_features(df):
-    """Select only the 27 features the model expects."""
+    """Select only the 25 features the model expects."""
     
     # Make sure all expected features exist
     for col in FEATURE_COLUMNS:
@@ -224,7 +216,7 @@ def preprocess_for_inference(df: pd.DataFrame) -> pd.DataFrame:
     Main function: preprocess new data for prediction.
     
     Input: Raw AirBnB listings DataFrame (same format as training data)
-    Output: Cleaned DataFrame with exactly 27 features, ready for model
+    Output: Cleaned DataFrame with exactly 25 features, ready for model
     
     Important: This function NEVER drops rows.
     """
@@ -239,7 +231,7 @@ def preprocess_for_inference(df: pd.DataFrame) -> pd.DataFrame:
     # Step 3: Handle missing values (fill, never drop)
     df = handle_missing_values(df)
     
-    # Step 4: Select the 27 features the model expects
+    # Step 4: Select the 25 features the model expects
     X = select_features(df)
     
     # Step 5: Final cleanup
