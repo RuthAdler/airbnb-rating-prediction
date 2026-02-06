@@ -24,12 +24,12 @@ def load_resources():
     
     # Construct the full paths
     model_path = os.path.join(current_dir, 'models', 'best_model.pkl') 
-    scaler_path = os.path.join(current_dir, 'models', 'scaler.pkl')
+#    scaler_path = os.path.join(current_dir, 'models', 'scaler.pkl')
 
     # Load
     model = joblib.load(model_path)
-    scaler = joblib.load(scaler_path)
-    return model, scaler
+#    scaler = joblib.load(scaler_path)
+    return model#, scaler
 
 # Main app
 st.title("AirBnB Rating Predictor")
@@ -37,7 +37,8 @@ st.write("Upload a CSV file with AirBnB listings to get rating predictions.")
 
 # Try to load the model
 try:
-    model, scaler = load_resources()
+#    model, scaler = load_resources()
+    model = load_resources()
     st.success("Model loaded successfully")
 except Exception as e:
     st.error(f"Could not load model: {e}")
@@ -63,7 +64,7 @@ if uploaded_file is not None:
         st.stop()
     
     # Scale the features
-    X_scaled = scaler.transform(X)
+#    X_scaled = scaler.transform(X)
     
     # Make predictions
     predictions = model.predict(X_scaled)
