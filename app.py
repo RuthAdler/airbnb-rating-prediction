@@ -67,7 +67,7 @@ if uploaded_file is not None:
 #    X_scaled = scaler.transform(X)
     
     # Make predictions
-    predictions = model.predict(X_scaled)
+    predictions = model.predict(X)
     
     # Create output dataframe
     output = pd.DataFrame({'prediction': predictions})
