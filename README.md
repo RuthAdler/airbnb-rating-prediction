@@ -1,4 +1,3 @@
-cat > README.md << 'EOF'
 # AirBnB Listing Rating Prediction
 
 > DS in Production 2025-6, Nebius Academy IL
@@ -116,4 +115,3 @@ Go to GitHub and click "Compare & pull request". Ask a teammate to review.
 - Ella Yakir
 - Rosemary Lavender
 
-EOF
