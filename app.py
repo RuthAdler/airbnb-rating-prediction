@@ -17,14 +17,14 @@ def load_resources():
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     model_path = os.path.join(current_dir, MODEL_PATH)
-    scaler_path = os.path.join(current_dir, SCALER_PATH)
-
     model = joblib.load(model_path)
 
     # Optional: Load scaler if it exists
     scaler = None
-    if os.path.exists(scaler_path):
-        scaler = joblib.load(scaler_path)
+    if SCALER_PATH:
+        scaler_path = os.path.join(current_dir, SCALER_PATH)
+        if os.path.exists(scaler_path):
+            scaler = joblib.load(scaler_path)
 
     return model, scaler
 
