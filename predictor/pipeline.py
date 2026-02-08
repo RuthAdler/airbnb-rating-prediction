@@ -1,19 +1,21 @@
 import pandas as pd
-from .config import DEFAULT_MODEL_PATH
-from .load_model import load_model
 from src.preprocessing_inference import preprocess_for_inference
+import joblib
+import streamlit as st
+from predictor.config import DEFAULT_MODEL_PATH
 
-_model = None
 
+@st.cache_resource
+def load_model(path: str = DEFAULT_MODEL_PATH) -> object:
+    """Load a machine learning model from the specified file path."""
 
-def predict(df_raw: pd.DataFrame):
-    """Predict using the trained model. This function is designed to be called multiple times, but the model will only be loaded once."""
+    return joblib.load(path)
 
-    global _model
+def preprocess(df_raw: pd.DataFrame) -> pd.DataFrame:
+    """Preprocess the raw input data for inference."""
+    return preprocess_for_inference(df_raw)
 
-    if _model is None:
-        _model = load_model(DEFAULT_MODEL_PATH)
-
-    X = preprocess_for_inference(df_raw)
-
-    return _model.predict(X)
+def predict(df_processed: pd.DataFrame, model: object) -> pd.Series:
+    """Make predictions using the loaded model on the preprocessed data."""
+    predictions = model.predict(df_processed)
+    return predictions
