@@ -30,23 +30,34 @@ airbnb-rating-prediction/
 │   ├── listings LA.csv
 │   └── listings NYC.csv
 │
+├── models/                     # Trained artifacts
+│   ├── best_model.pkl
+│   ├── scaler.pkl
+│   └── feature_columns.pkl
+│
 ├── notebooks/
 │   ├── airbnb_baseline.ipynb
 │   └── PClass1 AirBnB EDA.ipynb
 │
-├── src/
+├── src/                        # TRAINING & EXPERIMENTS
 │   ├── __init__.py
 │   ├── data_loading.py
 │   ├── preprocessing.py
+│   ├── feature_sets.py
 │   ├── geo_processing.py
 │   ├── train.py
-│   ├── predict.py
-│   ├── results.py
-│   └── visualization.py
+│   └── run_experiment.py      # Main experiment runner (W&B)
 │
-├── main.py
-├── README.md
-└── requirements.txt
+├── predictor/                  # PRODUCTION APP INFERENCE
+│   ├── __init__.py
+│   ├── config.py              # Paths to model & scaler
+│   └── preprocessing_inference.py
+│
+├── app.py                     # Streamlit inference app
+├── main.py                    
+├── requirements.txt
+└── README.md
+
 
 ```
 

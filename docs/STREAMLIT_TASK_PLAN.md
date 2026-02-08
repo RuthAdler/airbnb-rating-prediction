@@ -244,10 +244,11 @@ AirBnB Rating Prediction App
 import streamlit as st
 import pandas as pd
 import joblib
-from src.preprocessing_inference import preprocess_for_inference
+from predictor.preprocessing_inference import preprocess_for_inference
 
 # Page setup
 st.set_page_config(page_title="AirBnB Rating Predictor", layout="centered")
+
 
 # Load the model and scaler (this only runs once)
 @st.cache_resource
@@ -255,6 +256,7 @@ def load_model():
     model = joblib.load('models/best_model.pkl')
     scaler = joblib.load('models/scaler.pkl')
     return model, scaler
+
 
 # Main app
 st.title("AirBnB Rating Predictor")
@@ -279,27 +281,27 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"Could not read file: {e}")
         st.stop()
-    
+
     # Preprocess
     try:
         X = preprocess_for_inference(df)
     except Exception as e:
         st.error(f"Preprocessing failed: {e}")
         st.stop()
-    
+
     # Scale the features
     X_scaled = scaler.transform(X)
-    
+
     # Make predictions
     predictions = model.predict(X_scaled)
-    
+
     # Create output dataframe
     output = pd.DataFrame({'prediction': predictions})
-    
+
     # Show first few predictions
     st.write("Preview (first 10 rows):")
     st.dataframe(output.head(10))
-    
+
     # Download button
     csv = output.to_csv(index=False)
     st.download_button(
@@ -308,7 +310,7 @@ if uploaded_file is not None:
         file_name="predictions.csv",
         mime="text/csv"
     )
-    
+
     st.write(f"Done! Generated {len(predictions)} predictions.")
 ```
 

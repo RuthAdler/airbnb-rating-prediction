@@ -1,35 +1,33 @@
-import streamlit as st
-import pandas as pd
 import joblib
 import os
-from predictor.pipeline import predict
-from predictor.config import DEFAULT_MODEL_PATH
-from src.preprocessing_inference import preprocess_for_inference
+import streamlit as st
+import pandas as pd
 
-
-#TODO: Build a Streamlit app
+from predictor.config import MODEL_PATH, SCALER_PATH
+from predictor.preprocessing_inference import preprocess_for_inference
 
 """
 AirBnB Rating Prediction App
 """
 
-# Page setup
-st.set_page_config(page_title="AirBnB Rating Predictor", layout="centered")
 
-# Load the model and scaler (this only runs once)
+# Page setup
 @st.cache_resource
 def load_resources():
-# Get the folder containing this script
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    
-    # Construct the full paths
-    model_path = os.path.join(current_dir, 'models', 'best_model.pkl') 
-#    scaler_path = os.path.join(current_dir, 'models', 'scaler.pkl')
 
-    # Load
+    model_path = os.path.join(current_dir, MODEL_PATH)
+    scaler_path = os.path.join(current_dir, SCALER_PATH)
+
     model = joblib.load(model_path)
-#    scaler = joblib.load(scaler_path)
-    return model#, scaler
+
+    # Optional: Load scaler if it exists
+    scaler = None
+    if os.path.exists(scaler_path):
+        scaler = joblib.load(scaler_path)
+
+    return model, scaler
+
 
 # Main app
 st.title("AirBnB Rating Predictor")
@@ -37,8 +35,7 @@ st.write("Upload a CSV file with AirBnB listings to get rating predictions.")
 
 # Try to load the model
 try:
-#    model, scaler = load_resources()
-    model = load_resources()
+    model, scaler = load_resources()
     st.success("Model loaded successfully")
 except Exception as e:
     st.error(f"Could not load model: {e}")
@@ -55,27 +52,29 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"Could not read file: {e}")
         st.stop()
-    
+
     # Preprocess
     try:
         X = preprocess_for_inference(df)
     except Exception as e:
         st.error(f"Preprocessing failed: {e}")
         st.stop()
-    
+
     # Scale the features
-#    X_scaled = scaler.transform(X)
-    
-    # Make predictions
+    if scaler is not None:
+        X = scaler.transform(X)
+    else:
+        X = X.values  # Convert to numpy array if not already
+
     predictions = model.predict(X)
-    
+
     # Create output dataframe
     output = pd.DataFrame({'prediction': predictions})
-    
+
     # Show first few predictions
     st.write("Preview (first 10 rows):")
     st.dataframe(output.head(10))
-    
+
     # Download button
     csv = output.to_csv(index=False)
     st.download_button(
@@ -84,5 +83,5 @@ if uploaded_file is not None:
         file_name="predictions.csv",
         mime="text/csv"
     )
-    
+
     st.write(f"Done! Generated {len(predictions)} predictions.")

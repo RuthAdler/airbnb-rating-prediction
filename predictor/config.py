@@ -1,1 +1,3 @@
-DEFAULT_MODEL_PATH = "models/prod_pipeline.pkl"
+MODEL_PATH = "models/best_model.pkl"
+SCALER_PATH = None
+# SCALER_PATH = "models/scaler.pkl"
