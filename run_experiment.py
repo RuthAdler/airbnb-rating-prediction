@@ -8,7 +8,10 @@ import argparse
 import warnings
 import pandas as pd
 import numpy as np
+
 import wandb
+import joblib
+import os
 
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.tree import DecisionTreeRegressor
@@ -16,6 +19,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.dummy import DummyRegressor
 from sklearn.preprocessing import StandardScaler, RobustScaler, MinMaxScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.pipeline import Pipeline
 
 from src.data_loading import load_all_listings
 from src.preprocessing import preprocess_data
@@ -152,6 +156,7 @@ def print_experiment_header(run):
     print(f"Scaler: {config.scaler}")
     print(f"{'=' * 60}\n")
 
+
 def load_and_preprocess(args):
     """Load and preprocess data."""
     print("Loading data...")
@@ -167,8 +172,8 @@ def load_and_preprocess(args):
     return X_train, X_test, y_train, y_test
 
 
-def clean_data(X_train, X_test):
-    """Clean data by handling NaN/inf and clipping extreme values."""
+def clip_outliers(X_train, X_test):
+    """Clip outliers in both train and test sets based on 1st and 99th percentiles of the training data."""
     for col in X_train.columns:
         p99_train = X_train[col].quantile(0.99)
         p1_train = X_train[col].quantile(0.01)
@@ -176,28 +181,6 @@ def clean_data(X_train, X_test):
         X_test[col] = X_test[col].clip(lower=p1_train, upper=p99_train)
 
     return X_train, X_test
-
-
-def scale_features(X_train, X_test, scaler_name):
-    """Apply scaling to features."""
-    scaler = get_scaler(scaler_name)
-    if scaler is not None:
-        print(f"Applying {scaler_name} scaler...")
-        X_train_scaled = scaler.fit_transform(X_train)
-        X_test_scaled = scaler.transform(X_test)
-    else:
-        X_train_scaled = X_train.values
-        X_test_scaled = X_test.values
-
-    return X_train_scaled, X_test_scaled, scaler
-
-
-def train_and_predict(model, X_train_scaled, X_test_scaled, y_train):
-    """Train model and generate predictions."""
-    model.fit(X_train_scaled, y_train)
-    y_train_pred = model.predict(X_train_scaled)
-    y_test_pred = model.predict(X_test_scaled)
-    return y_train_pred, y_test_pred
 
 
 def print_results(train_metrics, test_metrics, run):
@@ -266,30 +249,40 @@ def run_experiment(args):
 
     # Log dataset info + features (before cleaning/scaling)
     feature_names = X_train.columns.tolist()
+    features_table = wandb.Table(columns=["feature"])
+    for f in feature_names:
+        features_table.add_data(f)
 
     wandb.log({
+        "features_table": features_table,
         "train_samples": len(X_train),
         "test_samples": len(X_test),
         "n_features": len(feature_names),
-        "features_preview": ", ".join(feature_names),
+        "features_preview": ", ".join(feature_names[:80])
     })
 
-    with open("features_used.txt", "w", encoding="utf-8") as f:
-        f.write("\n".join(feature_names))
-    wandb.save("features_used.txt")
-
     # Clean (NaN/inf/clip) and continue
-    X_train, X_test = clean_data(X_train, X_test)
+    X_train, X_test = clip_outliers(X_train, X_test)
 
     config = wandb.config
-    X_train_scaled, X_test_scaled, scaler = scale_features(X_train, X_test, config.scaler) 
 
-    print(f"Training {config.model} model...")
+    scaler = get_scaler(config.scaler)
     model = get_model(config)
-    y_train_pred, y_test_pred = train_and_predict(model, X_train_scaled, X_test_scaled, y_train)
+
+    steps = []
+    if scaler is not None:
+        steps.append(('scaler', scaler))
+    steps.append(('model', model))
+
+    pipeline = Pipeline(steps)
+
+    pipeline.fit(X_train, y_train)
+
+    y_train_pred = pipeline.predict(X_train)
+    y_test_pred = pipeline.predict(X_test)
 
     if wandb.config.model in {"linear_regression", "ridge", "lasso"}:
-        log_linear_coefs_to_wandb(model, X_train.columns.tolist())
+        log_linear_coefs_to_wandb(pipeline.named_steps["model"], X_train.columns.tolist())
 
     train_metrics = evaluate(y_train, y_train_pred)
     test_metrics = evaluate(y_test, y_test_pred)
@@ -304,21 +297,23 @@ def run_experiment(args):
     })
 
     print_results(train_metrics, test_metrics, run)
-    log_feature_importances(model, X_train)
-
-    import joblib
-    import os
+    log_feature_importances(pipeline.named_steps["model"], X_train)
 
     # Create models directory
-    os.makedirs('models', exist_ok=True)
+    os.makedirs("models", exist_ok=True)
 
-    # Save the model
-    joblib.dump(model, 'models/best_model.pkl')
+    # Save the entire trained pipeline (scaler + model)
+    joblib.dump(pipeline, "models/best_model_pipeline.pkl")
+    print("Saved: models/best_model_pipeline.pkl")
+
+    # Optional: save trained model and scaler separately
+    trained_model = pipeline.named_steps["model"]
+    joblib.dump(trained_model, "models/best_model.pkl")
     print("Saved: models/best_model.pkl")
 
-    # Save the scaler
-    if scaler is not None:
-        joblib.dump(scaler, 'models/scaler.pkl')
+    if "scaler" in pipeline.named_steps:
+        trained_scaler = pipeline.named_steps["scaler"]
+        joblib.dump(trained_scaler, "models/scaler.pkl")
         print("Saved: models/scaler.pkl")
 
     # Save feature columns
