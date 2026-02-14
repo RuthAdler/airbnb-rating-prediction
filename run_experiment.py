@@ -18,7 +18,6 @@ from sklearn.preprocessing import StandardScaler, RobustScaler, MinMaxScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 from src.data_loading import load_all_listings
-from src.preprocessing import preprocess_data
 from src.feature_sets import apply_feature_set
 
 # Suppress warnings for cleaner output
@@ -34,9 +33,9 @@ except ImportError:
     print("Note: XGBoost not installed. Install with: pip install xgboost")
 
 
-def get_model(config):
+def get_model(cfg):
     """Return a model instance based on config."""
-    model_name = config.model
+    model_name = cfg.model
 
     if model_name == "dummy":
         return DummyRegressor(strategy="mean")
@@ -45,22 +44,22 @@ def get_model(config):
         return LinearRegression()
 
     elif model_name == "ridge":
-        return Ridge(alpha=config.alpha, random_state=config.random_state)
+        return Ridge(alpha=cfg.alpha, random_state=cfg.random_state)
 
     elif model_name == "lasso":
-        return Lasso(alpha=config.alpha, random_state=config.random_state)
+        return Lasso(alpha=cfg.alpha, random_state=cfg.random_state)
 
     elif model_name == "decision_tree":
         return DecisionTreeRegressor(
-            max_depth=config.max_depth,
-            random_state=config.random_state
+            max_depth=cfg.max_depth,
+            random_state=cfg.random_state
         )
 
     elif model_name == "random_forest":
         return RandomForestRegressor(
-            n_estimators=config.n_estimators,
-            max_depth=config.max_depth,
-            random_state=config.random_state,
+            n_estimators=cfg.n_estimators,
+            max_depth=cfg.max_depth,
+            random_state=cfg.random_state,
             n_jobs=-1
         )
 
@@ -68,10 +67,10 @@ def get_model(config):
         if not XGBOOST_AVAILABLE:
             raise ValueError("XGBoost not installed. Use: pip install xgboost")
         return XGBRegressor(
-            n_estimators=config.n_estimators,
-            max_depth=config.max_depth,
-            learning_rate=config.learning_rate,
-            random_state=config.random_state,
+            n_estimators=cfg.n_estimators,
+            max_depth=cfg.max_depth,
+            learning_rate=cfg.learning_rate,
+            random_state=cfg.random_state,
             n_jobs=-1
         )
 
@@ -152,6 +151,7 @@ def print_experiment_header(run):
     print(f"Scaler: {config.scaler}")
     print(f"{'=' * 60}\n")
 
+
 def load_and_preprocess(args):
     """Load and preprocess data."""
     print("Loading data...")
@@ -167,21 +167,10 @@ def load_and_preprocess(args):
     return X_train, X_test, y_train, y_test
 
 
-def clean_data(X_train, X_test):
-    """Clean data by handling NaN/inf and clipping extreme values."""
-    for col in X_train.columns:
-        p99_train = X_train[col].quantile(0.99)
-        p1_train = X_train[col].quantile(0.01)
-        X_train[col] = X_train[col].clip(lower=p1_train, upper=p99_train)
-        X_test[col] = X_test[col].clip(lower=p1_train, upper=p99_train)
-
-    return X_train, X_test
-
-
 def scale_features(X_train, X_test, scaler_name):
     """Apply scaling to features."""
     scaler = get_scaler(scaler_name)
-    if scaler is not None:
+    if scaler is not None and scaler_name != "none":
         print(f"Applying {scaler_name} scaler...")
         X_train_scaled = scaler.fit_transform(X_train)
         X_test_scaled = scaler.transform(X_test)
@@ -192,7 +181,7 @@ def scale_features(X_train, X_test, scaler_name):
     return X_train_scaled, X_test_scaled, scaler
 
 
-def train_and_predict(model, X_train_scaled, X_test_scaled, y_train):
+def fit_and_evaluate(model, X_train_scaled, X_test_scaled, y_train):
     """Train model and generate predictions."""
     model.fit(X_train_scaled, y_train)
     y_train_pred = model.predict(X_train_scaled)
@@ -258,7 +247,26 @@ def run_experiment(args):
     run = initialize_wandb(args, run_name)
     print_experiment_header(run)
 
-    X_train, X_test, y_train, y_test = load_and_preprocess(args)
+    datasets = load_all_listings("data")
+    df = pd.concat(datasets.values(), ignore_index=True)
+
+    df = df.dropna(subset=["review_scores_rating"])
+
+    from sklearn.model_selection import train_test_split
+
+    train_df, test_df = train_test_split(
+        df,
+        test_size=args.test_size,
+        random_state=args.random_state
+    )
+
+    from src.features import prep_features
+
+    X_train = prep_features(train_df)
+    X_test = prep_features(test_df)
+
+    y_train = train_df["review_scores_rating"]
+    y_test = test_df["review_scores_rating"]
 
     # Apply dataset version feature set
     X_train = apply_feature_set(X_train, args.dataset_version)
@@ -278,15 +286,21 @@ def run_experiment(args):
         f.write("\n".join(feature_names))
     wandb.save("features_used.txt")
 
-    # Clean (NaN/inf/clip) and continue
-    X_train, X_test = clean_data(X_train, X_test)
-
     config = wandb.config
-    X_train_scaled, X_test_scaled, scaler = scale_features(X_train, X_test, config.scaler) 
+
+    # trees do not need scaling
+    if config.model in ["decision_tree", "random_forest", "xgboost"]:
+        scaler_name = "none"
+    else:
+        scaler_name = config.scaler
+
+    X_train_scaled, X_test_scaled, scaler = scale_features(
+        X_train, X_test, scaler_name
+    )
 
     print(f"Training {config.model} model...")
     model = get_model(config)
-    y_train_pred, y_test_pred = train_and_predict(model, X_train_scaled, X_test_scaled, y_train)
+    y_train_pred, y_test_pred = fit_and_evaluate(model, X_train_scaled, X_test_scaled, y_train)
 
     if wandb.config.model in {"linear_regression", "ridge", "lasso"}:
         log_linear_coefs_to_wandb(model, X_train.columns.tolist())
@@ -305,25 +319,6 @@ def run_experiment(args):
 
     print_results(train_metrics, test_metrics, run)
     log_feature_importances(model, X_train)
-
-    import joblib
-    import os
-
-    # Create models directory
-    os.makedirs('models', exist_ok=True)
-
-    # Save the model
-    joblib.dump(model, 'models/best_model.pkl')
-    print("Saved: models/best_model.pkl")
-
-    # Save the scaler
-    if scaler is not None:
-        joblib.dump(scaler, 'models/scaler.pkl')
-        print("Saved: models/scaler.pkl")
-
-    # Save feature columns
-    joblib.dump(X_train.columns.tolist(), 'models/feature_columns.pkl')
-    print("Saved: models/feature_columns.pkl")
 
     wandb.finish()
     return test_metrics

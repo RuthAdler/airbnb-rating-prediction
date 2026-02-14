@@ -150,6 +150,41 @@ def select_common_features(X_train, X_test):
     print(f"Using {len(common_cols)} numeric features")
     return X_train, X_test
 
+def add_distance_to_city_center(train_df, test_df, drop_center_cols=True):
+    """
+    Adds 'distance_to_center' feature to train and test DataFrames.
+    City centers are computed from train only (no leakage).
+    """
+
+    # 1. Compute city centers from training data only
+    city_centers = (
+        train_df
+        .groupby('city')[['longitude', 'latitude']]
+        .mean()
+        .rename(columns={
+            'longitude': 'longitude_center',
+            'latitude': 'latitude_center'
+        })
+    )
+
+    # 2. Merge centers
+    train_df = train_df.merge(city_centers, on='city', how='left')
+    test_df = test_df.merge(city_centers, on='city', how='left')
+
+    # 3. Compute Euclidean distance
+    for df in [train_df, test_df]:
+        df['distance_to_center'] = np.sqrt(
+            (df['longitude'] - df['longitude_center']) ** 2 +
+            (df['latitude'] - df['latitude_center']) ** 2
+        )
+
+    # 4. Optional cleanup
+    if drop_center_cols:
+        train_df = train_df.drop(columns=['longitude_center', 'latitude_center'])
+        test_df = test_df.drop(columns=['longitude_center', 'latitude_center'])
+
+    return train_df, test_df
+
 
 def preprocess_data(df: pd.DataFrame, save_dir: str = 'data/processed', test_size: float = 0.25,
                     random_state: int = 42) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
@@ -180,9 +215,7 @@ def preprocess_data(df: pd.DataFrame, save_dir: str = 'data/processed', test_siz
     test_df = feature_engineering(test_df)
 
     # Add distance to city center feature
-    center = fit_city_center(train_df)
-    train_df = add_distance_to_center(train_df, center)
-    test_df = add_distance_to_center(test_df, center)
+    train_df, test_df = add_distance_to_city_center(train_df, test_df, drop_center_cols=True)
 
     train_df.to_csv(f"{save_dir}/3_train_engineered.csv", index=False)
     test_df.to_csv(f"{save_dir}/3_test_engineered.csv", index=False)
