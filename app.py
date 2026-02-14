@@ -4,16 +4,25 @@ Model: v3 with text keyword features (22 features)
 """
 
 import joblib
-import os
 import streamlit as st
 import pandas as pd
 import numpy as np
 
 st.set_page_config(page_title="AirBnB Rating Predictor", page_icon="🏠")
 
+# Exact feature order from training
+FEATURE_ORDER = [
+    'accommodates', 'bathrooms', 'bedrooms', 'beds', 'room_ratio',
+    'host_response_rate', 'host_acceptance_rate', 'is_superhost',
+    'host_days_log', 'minimum_nights', 'instant_bookable', 'has_description',
+    'desc_length', 'has_host_about', 'response_speed', 'mentions_clean',
+    'mentions_luxury', 'mentions_view', 'mentions_location', 'mentions_modern',
+    'has_neighborhood', 'name_length'
+]
+
 
 def preprocess(df):
-    """Preprocess data - 22 features."""
+    """Preprocess data - 22 features in exact order."""
     X = pd.DataFrame()
     
     # Property features
@@ -49,7 +58,7 @@ def preprocess(df):
     X['desc_length'] = df['description'].fillna('').apply(lambda x: len(str(x))).clip(0,2000)/2000
     X['has_host_about'] = df['host_about'].notna().astype(int)
     
-    # Text keyword features (GenAI-style)
+    # Text keyword features
     desc = df['description'].fillna('').str.lower()
     X['mentions_clean'] = desc.str.contains('clean|spotless|sanitize|hygien', regex=True).astype(int)
     X['mentions_luxury'] = desc.str.contains('luxury|luxurious|upscale|premium|elegant', regex=True).astype(int)
@@ -59,7 +68,8 @@ def preprocess(df):
     X['has_neighborhood'] = df['neighborhood_overview'].notna().astype(int)
     X['name_length'] = df['name'].fillna('').apply(len).clip(0, 100) / 100
     
-    return X.fillna(0)
+    # IMPORTANT: Return features in exact order
+    return X[FEATURE_ORDER].fillna(0)
 
 
 # Main app
