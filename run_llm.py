@@ -1,14 +1,7 @@
 """
-LLM Feature Extraction for AirBnB - SIMPLE VERSION
+LLM Feature Extraction for AirBnB - FIXED VERSION
 
-Your friend just needs to:
-1. Get API credentials from Nebius console
-2. Run: python3 run_llm.py --api-key YOUR_KEY --api-base YOUR_ENDPOINT --model MODEL_NAME
-
-This will:
-- Extract 5 scores from each listing description using LLM
-- Add them to the model
-- Retrain and save
+Run: python3 run_llm.py --api-key YOUR_KEY --api-base YOUR_ENDPOINT --model MODEL_NAME
 """
 
 import argparse
@@ -18,12 +11,8 @@ import json
 import time
 import os
 import joblib
-from sklearn.linear_model import Ridge
-from sklearn.ensemble import GradientBoostingRegressor
-from sklearn.model_selection import cross_val_score
-from sklearn.metrics import mean_squared_error
+from pathlib import Path
 
-# Try to import requests
 try:
     import requests
 except ImportError:
@@ -35,15 +24,13 @@ except ImportError:
 def call_llm(description, name, api_key, api_base, model):
     """Call LLM to extract scores from listing."""
     
-    prompt = f"""Rate this AirBnB listing from 1-5 on each aspect. Return ONLY JSON, nothing else.
+    prompt = f"""You are a JSON API. Rate this AirBnB listing 1-5. Output ONLY valid JSON, nothing else.
 
-Listing name: {name[:100] if name else 'N/A'}
+Name: {name[:100] if name else 'N/A'}
 Description: {description[:500] if description else 'N/A'}
 
-Return this exact JSON format:
-{{"luxury": 3, "cleanliness": 3, "professional": 3, "location": 3, "amenities": 3}}
-
-JSON only:"""
+Output this JSON with your ratings:
+{{"luxury":3,"cleanliness":3,"professional":3,"location":3,"amenities":3}}"""
 
     try:
         response = requests.post(
@@ -55,29 +42,66 @@ JSON only:"""
             json={
                 "model": model,
                 "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 100,
+                "max_tokens": 150,
                 "temperature": 0
             },
-            timeout=30
+            timeout=60
         )
         
         if response.status_code == 200:
-            content = response.json()['choices'][0]['message']['content']
+            data = response.json()
+            message = data['choices'][0]['message']
+            
+            # Try different response formats
+            content = message.get('content')
+            if content is None:
+                content = message.get('reasoning_content')
+            if content is None:
+                content = message.get('reasoning')
+            if content is None:
+                print(f"No content in response: {message}")
+                return None
+            
             # Clean and parse JSON
-            content = content.strip()
-            if content.startswith("```"):
-                content = content.split("```")[1].replace("json", "").strip()
+            content = str(content).strip()
+            
+            # Remove markdown code blocks if present
+            if "```" in content:
+                parts = content.split("```")
+                for part in parts:
+                    part = part.strip()
+                    if part.startswith("json"):
+                        part = part[4:].strip()
+                    if part.startswith("{"):
+                        content = part
+                        break
+            
+            # Find JSON object in response
+            start = content.find("{")
+            end = content.find("}") + 1  # Find FIRST closing brace, not last
+            if start >= 0 and end > start:
+                content = content[start:end]
+            else:
+                # No JSON found, return default
+                return {
+                    'llm_luxury': 3, 'llm_cleanliness': 3, 
+                    'llm_professional': 3, 'llm_location': 3, 'llm_amenities': 3
+                }
+            
             scores = json.loads(content)
             return {
-                'llm_luxury': np.clip(scores.get('luxury', 3), 1, 5),
-                'llm_cleanliness': np.clip(scores.get('cleanliness', 3), 1, 5),
-                'llm_professional': np.clip(scores.get('professional', 3), 1, 5),
-                'llm_location': np.clip(scores.get('location', 3), 1, 5),
-                'llm_amenities': np.clip(scores.get('amenities', 3), 1, 5),
+                'llm_luxury': np.clip(float(scores.get('luxury', 3)), 1, 5),
+                'llm_cleanliness': np.clip(float(scores.get('cleanliness', 3)), 1, 5),
+                'llm_professional': np.clip(float(scores.get('professional', 3)), 1, 5),
+                'llm_location': np.clip(float(scores.get('location', 3)), 1, 5),
+                'llm_amenities': np.clip(float(scores.get('amenities', 3)), 1, 5),
             }
         else:
-            print(f"API error: {response.status_code}")
+            print(f"API error: {response.status_code} - {response.text}")
             return None
+    except json.JSONDecodeError as e:
+        print(f"JSON parse error: {e} - Content: {content[:200]}")
+        return None
     except Exception as e:
         print(f"Error: {e}")
         return None
@@ -95,8 +119,9 @@ def extract_llm_features(df, api_key, api_base, model, cache_file='llm_cache.jso
     
     results = []
     total = len(df)
+    errors = 0
     
-    for idx, row in df.iterrows():
+    for idx, (_, row) in enumerate(df.iterrows()):
         desc = str(row.get('description', ''))[:500]
         name = str(row.get('name', ''))[:100]
         
@@ -110,6 +135,7 @@ def extract_llm_features(df, api_key, api_base, model, cache_file='llm_cache.jso
             scores = call_llm(desc, name, api_key, api_base, model)
             
             if scores is None:
+                errors += 1
                 scores = {
                     'llm_luxury': 3, 'llm_cleanliness': 3, 
                     'llm_professional': 3, 'llm_location': 3, 'llm_amenities': 3
@@ -118,18 +144,19 @@ def extract_llm_features(df, api_key, api_base, model, cache_file='llm_cache.jso
             cache[cache_key] = scores
             results.append(scores)
             
-            # Save cache every 100 items
-            if len(results) % 100 == 0:
+            # Progress update every 50 items
+            if (idx + 1) % 50 == 0:
                 with open(cache_file, 'w') as f:
                     json.dump(cache, f)
-                print(f"Processed {len(results)}/{total}")
+                print(f"Processed {idx + 1}/{total} (errors: {errors})")
             
-            time.sleep(0.1)  # Rate limiting
+            time.sleep(0.2)  # Rate limiting
     
     # Final cache save
     with open(cache_file, 'w') as f:
         json.dump(cache, f)
     
+    print(f"Done! Total errors: {errors}/{total}")
     return pd.DataFrame(results)
 
 
@@ -183,66 +210,114 @@ def main():
     parser.add_argument('--api-base', required=True, help='API endpoint URL')
     parser.add_argument('--model', required=True, help='Model name')
     parser.add_argument('--test-only', action='store_true', help='Only test API connection')
+    parser.add_argument('--train', action='store_true', help='Train new model with LLM features')
     args = parser.parse_args()
     
     # Test API connection first
     print("=== Testing API Connection ===")
-    test_scores = call_llm("Nice apartment downtown", "Cozy Studio", args.api_key, args.api_base, args.model)
+    test_scores = call_llm("Lovely 2BR apartment in downtown. Very clean and modern with great city views.", 
+                           "Cozy Modern Downtown Apartment", 
+                           args.api_key, args.api_base, args.model)
     
     if test_scores:
-        print(f"API works! Test scores: {test_scores}")
+        print(f"✓ API works! Test scores: {test_scores}")
     else:
-        print("API connection failed. Check your credentials.")
+        print("✗ API connection failed. Check your credentials.")
         return
     
     if args.test_only:
         return
     
-    # Load test data
-    print("\n=== Loading Test Data ===")
-    test_df = pd.read_csv('TEST_SET_X.csv')
-    print(f"Test set: {len(test_df)} rows")
+    # Check if training data exists
+    data_dir = Path('data')
+    has_training_data = data_dir.exists() and list(data_dir.glob('listings*.csv'))
     
-    # Extract base features
-    print("\n=== Extracting Base Features ===")
-    X_base = prep_base_features(test_df)
-    print(f"Base features: {X_base.shape[1]}")
-    
-    # Extract LLM features
-    print("\n=== Extracting LLM Features (this takes a while) ===")
-    X_llm = extract_llm_features(test_df, args.api_key, args.api_base, args.model)
-    print(f"LLM features: {X_llm.shape[1]}")
-    
-    # Combine
-    X_combined = pd.concat([X_base.reset_index(drop=True), X_llm.reset_index(drop=True)], axis=1)
-    print(f"Total features: {X_combined.shape[1]}")
-    
-    # Load v3 model and make predictions
-    print("\n=== Making Predictions ===")
-    
-    # For now, use v3 model on base features only (LLM features need retraining)
-    model = joblib.load('models/model_v3.pkl')
-    
-    # Use only the columns the model expects
-    feature_order = list(model.feature_names_in_)
-    X_for_model = X_base[feature_order]
-    
-    predictions = model.predict(X_for_model)
-    
-    # Save predictions
-    output = pd.DataFrame({'prediction': predictions})
-    output.to_csv('predictions_llm.csv', index=False)
-    print("Saved predictions_llm.csv")
-    
-    # If we have labels, show RMSE
-    if os.path.exists('TEST_SET_Y.csv'):
-        y_true = pd.read_csv('TEST_SET_Y.csv').iloc[:, 0].values
-        rmse = np.sqrt(mean_squared_error(y_true, predictions))
-        print(f"\nRMSE: {rmse:.4f}")
+    if args.train and has_training_data:
+        print("\n=== Training Mode ===")
+        
+        # Load training data
+        print("Loading training data...")
+        datasets = []
+        for f in data_dir.glob('listings*.csv'):
+            if 'TEST' not in f.name.upper():
+                print(f"  Loading {f.name}")
+                datasets.append(pd.read_csv(f))
+        
+        train_df = pd.concat(datasets, ignore_index=True)
+        train_df = train_df.dropna(subset=['review_scores_rating'])
+        y_train = train_df['review_scores_rating'].values
+        print(f"Training data: {len(train_df)} rows")
+        
+        # Extract features
+        print("\nExtracting base features...")
+        X_base = prep_base_features(train_df)
+        
+        print("\nExtracting LLM features for training data...")
+        X_llm = extract_llm_features(train_df, args.api_key, args.api_base, args.model, 
+                                     cache_file='llm_cache_train.json')
+        
+        # Combine features
+        X_train = pd.concat([X_base.reset_index(drop=True), X_llm.reset_index(drop=True)], axis=1)
+        print(f"\nTotal features: {X_train.shape[1]}")
+        
+        # Train model
+        print("\nTraining model...")
+        from sklearn.ensemble import GradientBoostingRegressor
+        from sklearn.model_selection import cross_val_score
+        
+        model = GradientBoostingRegressor(n_estimators=100, max_depth=3, learning_rate=0.05, random_state=42)
+        cv_scores = cross_val_score(model, X_train, y_train, cv=5, scoring='neg_root_mean_squared_error')
+        print(f"CV RMSE: {-cv_scores.mean():.4f} (+/- {cv_scores.std():.4f})")
+        
+        model.fit(X_train, y_train)
+        
+        # Save model
+        joblib.dump(model, 'models/model_llm.pkl')
+        joblib.dump(list(X_train.columns), 'models/feature_columns_llm.pkl')
+        print("\nSaved: models/model_llm.pkl")
+        
+    else:
+        # Just process test data
+        print("\n=== Processing Test Data ===")
+        
+        if not os.path.exists('TEST_SET_X.csv'):
+            print("TEST_SET_X.csv not found!")
+            return
+        
+        test_df = pd.read_csv('TEST_SET_X.csv')
+        print(f"Test set: {len(test_df)} rows")
+        
+        # Extract features
+        print("\nExtracting base features...")
+        X_base = prep_base_features(test_df)
+        
+        print("\nExtracting LLM features...")
+        X_llm = extract_llm_features(test_df, args.api_key, args.api_base, args.model)
+        
+        # Save LLM features
+        X_llm.to_csv('llm_features_test.csv', index=False)
+        print("\nSaved: llm_features_test.csv")
+        
+        # Combine and predict with v3 model
+        print("\nMaking predictions with v3 model + LLM features info...")
+        model = joblib.load('models/model_v3.pkl')
+        feature_order = list(model.feature_names_in_)
+        X_for_model = X_base[feature_order]
+        predictions = model.predict(X_for_model)
+        
+        # Save predictions
+        output = pd.DataFrame({'prediction': predictions})
+        output.to_csv('predictions_with_llm.csv', index=False)
+        print("Saved: predictions_with_llm.csv")
+        
+        # Calculate RMSE if labels available
+        if os.path.exists('TEST_SET_Y.csv'):
+            from sklearn.metrics import mean_squared_error
+            y_true = pd.read_csv('TEST_SET_Y.csv').iloc[:, 0].values
+            rmse = np.sqrt(mean_squared_error(y_true, predictions))
+            print(f"\nRMSE: {rmse:.4f}")
     
     print("\n=== Done! ===")
-    print("LLM features extracted and cached in llm_cache.json")
-    print("To retrain with LLM features, we need training data on the VM")
 
 
 if __name__ == "__main__":
