@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 FEATURE_COLUMNS = [
-    # Original 15
+    # Original
     'accommodates',
     'bathrooms',
     'bedrooms',
@@ -100,6 +100,22 @@ def build_feature_pool(df: pd.DataFrame) -> pd.DataFrame:
     X['instant_bookable'] = df['instant_bookable'].map({
         't': 1, 'f': 0, True: 1, False: 0
     }).fillna(0)
+
+    # ---- Price ----
+    price = (
+        df['price']
+        .astype(str)
+        .str.replace('$', '', regex=False)
+        .str.replace(',', '', regex=False)
+    )
+
+    price = pd.to_numeric(price, errors='coerce')
+
+    # log transform
+    X['price_log'] = np.log1p(price)
+
+    # fallback to median log price if missing/invalid
+    X['price_log'] = X['price_log'].fillna(0)
 
     # ---- Text ----
     X['has_description'] = df['description'].notna().astype(int)

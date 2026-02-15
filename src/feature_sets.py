@@ -54,6 +54,8 @@ CORE_COLS = {
     "is_superhost",
 }
 
+PRICE_COLS = {'log_price'}
+
 TOP_FEATURES = {
     "is_superhost",
     "host_days_log",
