@@ -1,23 +1,38 @@
 """
 Feature set selection for different dataset versions.
+Works with BOTH:
+- engineered features (features.py)
+- cleaned raw features
 """
 
 import pandas as pd
 
-TEXT_COLS = {"description_length_words", "description_length_chars"}
+# ---------------- FEATURE GROUPS ----------------
 
-GEO_COLS = {"distance_to_center"}
+TEXT_COLS = {
+    "desc_length",
+    "has_description",
+    "mentions_clean",
+    "mentions_luxury",
+    "mentions_view",
+    "mentions_location",
+    "mentions_modern",
+    "name_length",
+}
+
+GEO_COLS = {
+    "latitude",
+    "longitude",
+}
 
 HOST_COLS = {
-    "host_tenure_days",
+    "host_days_log",
     "host_response_rate",
     "host_acceptance_rate",
-    "host_is_superhost",
-    "host_response_time_coded",
-    "has_neighborhood_overview",
+    "is_superhost",
+    "response_speed",
     "has_host_about",
-    "log_host_total_listings_count",
-    "log_host_listings_count",
+    "has_neighborhood",
 }
 
 PROPERTY_COLS = {
@@ -25,63 +40,43 @@ PROPERTY_COLS = {
     "bathrooms",
     "bedrooms",
     "beds",
+    "room_ratio",
     "minimum_nights",
-    "maximum_nights",
-    "minimum_minimum_nights",
-    "maximum_minimum_nights",
-    "minimum_maximum_nights",
-    "maximum_maximum_nights",
-    "minimum_nights_avg_ntm",
-    "maximum_nights_avg_ntm",
-    "minimum_minimum_nights",
-    "estimated_occupancy_l365d",
     "instant_bookable",
-    "log_price",
-}
-
-LISTING_EFFORT_COLS = {
-    "description_length_words",
-    "description_length_chars",
-    "has_host_about",
-    "has_neighborhood_overview",
-}
-
-
-STRUCTURAL_COLS = {
-    "accommodates",
-    "bedrooms",
-    "beds",
-    "bathrooms",
 }
 
 CORE_COLS = {
-    "log_price",
     "accommodates",
     "bathrooms",
-    "distance_to_center",
-    "host_tenure_days",
-    "host_is_superhost",
+    "host_days_log",
+    "is_superhost",
 }
 
 TOP_FEATURES = {
-    "host_is_superhost",
-    "log_host_total_listings_count",
-    "host_tenure_days",
-    "minimum_maximum_nights",
+    "is_superhost",
+    "host_days_log",
+    "room_ratio",
+    "minimum_nights",
 }
 
 
 DATE_COLS = {"last_scraped", "host_since", "first_review", "last_review"}
-REDUNDANT= {"latitude", "longitude"}
 
+
+
+# ---------------- MAIN FUNCTION ----------------
 
 def apply_feature_set(X: pd.DataFrame, dataset_version: str) -> pd.DataFrame:
+
     v = dataset_version.lower().strip()
+
     cols = list(X.columns)
     cols_set = set(cols)
 
-    # Safety: remove raw date columns if they survived
-    cols_set -= (DATE_COLS & cols_set | REDUNDANT & cols_set)
+    # remove unwanted columns safely
+    cols_set -= DATE_COLS
+
+    # ---------- VERSION LOGIC ----------
 
     if v in {"v0", "all"}:
         keep = cols_set
@@ -107,26 +102,24 @@ def apply_feature_set(X: pd.DataFrame, dataset_version: str) -> pd.DataFrame:
     elif v in {"v7", "human"}:
         keep = HOST_COLS | TEXT_COLS
 
-    elif v in {"v8", "price_only"}:
-        keep = {"log_price", "estimated_occupancy_l365d"}
+    elif v in {"v8", "structure"}:
+        keep = PROPERTY_COLS | GEO_COLS
 
-    elif v in {"v9"}:
+    elif v in {"v9", "top"}:
         keep = TOP_FEATURES
 
     else:
+        raise ValueError(f"Unknown dataset_version '{dataset_version}'")
+
+    # keep only columns that actually exist
+    keep_existing = [c for c in cols if c in keep and c in cols_set]
+
+    if len(keep_existing) == 0:
         raise ValueError(
-            f"Unknown dataset_version='{dataset_version}'.\n"
-            "Valid options:\n"
-            "v0_all_features\n"
-            "v1_no_text\n"
-            "v2_no_geo\n"
-            "v3_host_only\n"
-            "v4_property_only\n"
-            "v5_core\n"
-            "v6_no_host\n"
-            "v7_human_factors\n"
-            "v8_price_only"
+            f"No features selected for version '{dataset_version}'. "
+            "Check feature pool."
         )
 
-    keep_ordered = [c for c in cols if c in keep]
-    return X[keep_ordered]
+    print(f"[FeatureSet {v}] using {len(keep_existing)} features")
+
+    return X[keep_existing]
