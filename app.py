@@ -11,6 +11,7 @@ from sklearn.metrics import mean_squared_error
 
 from src.features import prep_features
 
+MODEL_PATH = 'models/model_v3.pkl'
 st.set_page_config(page_title="AirBnB Rating Predictor", page_icon="🏠")
 
 # Training mean (calculated from LA + NYC data)
@@ -22,7 +23,7 @@ st.write("Upload a CSV file to get rating predictions")
 
 # Load model
 try:
-    model = joblib.load('models/model_v3.pkl')
+    model = joblib.load(MODEL_PATH)
     FEATURE_ORDER = model.feature_names_in_
     st.success(f"✓ Model loaded ({len(FEATURE_ORDER)} features)")
 

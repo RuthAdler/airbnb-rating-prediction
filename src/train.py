@@ -41,7 +41,7 @@ def load_training_data(data_dir: str) -> pd.DataFrame:
     return combined
 
 
-def main(data_dir: str, output_dir: str = 'models'):
+def main(data_dir: str, output_dir: str = 'models', model_version: str = 'v0'):
     """Train and save the model."""
 
     Path(output_dir).mkdir(exist_ok=True)
@@ -98,8 +98,8 @@ def main(data_dir: str, output_dir: str = 'models'):
 
     # Save
     print("\n=== Saving ===")
-    joblib.dump(best_model, f'{output_dir}/model_v3.pkl')
-    joblib.dump(FEATURE_COLUMNS, f'{output_dir}/feature_columns_v3.pkl')
+    joblib.dump(best_model, f'{output_dir}/model_{model_version}.pkl')
+    joblib.dump(FEATURE_COLUMNS, f'{output_dir}/feature_columns_{model_version}.pkl')
 
     print(f"Saved: {output_dir}/model_v3.pkl")
     print(f"Saved: {output_dir}/feature_columns_v3.pkl")
@@ -113,4 +113,6 @@ if __name__ == "__main__":
     parser.add_argument('--output-dir', default='models')
     args = parser.parse_args()
 
-    main(args.data_dir, args.output_dir)
+    MODEL_VERSION = 'v3'
+
+    main(args.data_dir, args.output_dir, model_version=MODEL_VERSION)
