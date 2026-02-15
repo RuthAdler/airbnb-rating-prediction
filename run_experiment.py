@@ -262,12 +262,9 @@ def run_experiment(args):
         "train_samples": len(X_train),
         "test_samples": len(X_test),
         "n_features": len(feature_names),
+        "features_used": "\n".join(feature_names),
         "features_preview": ", ".join(feature_names),
     })
-
-    with open("features_used.txt", "w", encoding="utf-8") as f:
-        f.write("\n".join(feature_names))
-    wandb.save("features_used.txt")
 
     config = wandb.config
 
