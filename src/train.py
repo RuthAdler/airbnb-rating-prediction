@@ -2,7 +2,7 @@
 Train model v3 - with text keyword features (GenAI submission)
 
 Usage:
-    python train.py --data-dir data
+    python -m src.train --data-dir data
 
 Creates:
     - models/model_v3.pkl

@@ -18,6 +18,9 @@ FEATURE_COLUMNS = [
     'desc_length',
     'has_host_about',
     'response_speed',
+    'room_type',
+    'property_type',
+
     # Text keywords (7)
     'mentions_clean',
     'mentions_luxury',
@@ -27,6 +30,25 @@ FEATURE_COLUMNS = [
     'has_neighborhood',
     'name_length',
 ]
+
+
+def simplify_property_type(x):
+    x = str(x).lower()
+
+    if "apartment" in x or "rental" in x or "loft" in x:
+        return 1  # apartment-like
+
+    if "house" in x or "home" in x or "villa" in x:
+        return 2  # house-like
+
+    if "condo" in x:
+        return 3
+
+    if "hotel" in x or "serviced" in x:
+        return 4
+
+    return 0  # other / rare
+
 
 def build_feature_pool(df: pd.DataFrame) -> pd.DataFrame:
     """Create FULL feature pool (for experiments)."""
@@ -95,8 +117,19 @@ def build_feature_pool(df: pd.DataFrame) -> pd.DataFrame:
     X['has_neighborhood'] = df['neighborhood_overview'].notna().astype(int)
     X['name_length'] = df['name'].fillna('').str.len().clip(0, 100) / 100
 
-    return X.fillna(0)
+    # room and property types
+    ROOM_TYPE_MAP = {
+        "Entire home/apt": 2,
+        "Private room": 1,
+        "Shared room": 0,
+        "Hotel room": 2
+    }
 
+    X["room_type"] = df["room_type"].map(ROOM_TYPE_MAP).fillna(1)
+
+    X["property_type"] = df["property_type"].apply(simplify_property_type)
+
+    return X.fillna(0)
 
 
 def prep_features(df: pd.DataFrame) -> pd.DataFrame:
