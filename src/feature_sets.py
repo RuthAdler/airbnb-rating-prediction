@@ -43,6 +43,8 @@ PROPERTY_COLS = {
     "room_ratio",
     "minimum_nights",
     "instant_bookable",
+    "room_type",
+    "property_type",
 }
 
 CORE_COLS = {
