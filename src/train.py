@@ -17,6 +17,8 @@ from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.model_selection import cross_val_score, train_test_split
 from sklearn.metrics import mean_squared_error
 import joblib
+from xgboost import XGBRegressor
+
 
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -67,12 +69,30 @@ def main(data_dir: str, output_dir: str = 'models', model_version: str = 'v0'):
 
     models = {
         'Ridge': Ridge(alpha=10),
+
         'Scaler + Ridge': Pipeline([
             ('scaler', StandardScaler()),
             ('ridge', Ridge(alpha=10))
         ]),
+
         'GradientBoosting': GradientBoostingRegressor(
-            n_estimators=100, max_depth=3, learning_rate=0.05, random_state=42
+            n_estimators=100,
+            max_depth=3,
+            learning_rate=0.05,
+            random_state=42
+        ),
+
+        'XGBoost': XGBRegressor(
+            n_estimators=300,
+            max_depth=4,
+            learning_rate=0.05,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            reg_lambda=1.0,
+            random_state=42,
+            n_jobs=-1,
+            tree_method="hist",
+            objective="reg:squarederror"
         )
     }
 
@@ -101,8 +121,8 @@ def main(data_dir: str, output_dir: str = 'models', model_version: str = 'v0'):
     joblib.dump(best_model, f'{output_dir}/model_{model_version}.pkl')
     joblib.dump(FEATURE_COLUMNS, f'{output_dir}/feature_columns_{model_version}.pkl')
 
-    print(f"Saved: {output_dir}/model_v3.pkl")
-    print(f"Saved: {output_dir}/feature_columns_v3.pkl")
+    print(f"Saved: {output_dir}/model_{MODEL_VERSION}.pkl")
+    print(f"Saved: {output_dir}/feature_columns_{MODEL_VERSION}.pkl")
 
     return best_model
 
@@ -113,6 +133,6 @@ if __name__ == "__main__":
     parser.add_argument('--output-dir', default='models')
     args = parser.parse_args()
 
-    MODEL_VERSION = 'v3'
+    MODEL_VERSION = 'v5'
 
     main(args.data_dir, args.output_dir, model_version=MODEL_VERSION)

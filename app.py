@@ -17,7 +17,7 @@ from src.features import prep_features
 
 # Config
 
-MODEL_PATH = "models/model_v4.pkl"
+MODEL_PATH = "models/model_v5.pkl"
 TRAINING_MEAN = 4.691  # baseline prediction
 
 st.set_page_config(page_title="AirBnB Rating Predictor", page_icon="🏠")
