@@ -63,15 +63,49 @@ TOP_FEATURES = {
     "minimum_nights",
 }
 
-
 DATE_COLS = {"last_scraped", "host_since", "first_review", "last_review"}
+
+TEXT_ONLY = TEXT_COLS
+
+GEO_ONLY = GEO_COLS
+
+HOST_BEHAVIOR = {
+    "host_response_rate",
+    "host_acceptance_rate",
+    "response_speed",
+}
+
+HOST_EXPERIENCE = {
+    "host_days_log",
+    "is_superhost",
+}
+
+BOOKING_FRICTION = {
+    "minimum_nights",
+    "instant_bookable",
+}
+
+CAPACITY = {
+    "accommodates",
+    "bedrooms",
+    "beds",
+    "room_ratio",
+}
+
+QUALITY_SIGNAL = {
+    "is_superhost",
+    "host_days_log",
+    "mentions_clean",
+    "desc_length",
+}
+
+HOST_NO_SUPERHOST = HOST_COLS - {"is_superhost"}
 
 
 
 # ---------------- MAIN FUNCTION ----------------
 
 def apply_feature_set(X: pd.DataFrame, dataset_version: str) -> pd.DataFrame:
-
     v = dataset_version.lower().strip()
 
     cols = list(X.columns)
@@ -111,6 +145,44 @@ def apply_feature_set(X: pd.DataFrame, dataset_version: str) -> pd.DataFrame:
 
     elif v in {"v9", "top"}:
         keep = TOP_FEATURES
+
+    elif v in {"v10", "text_only"}:
+        keep = TEXT_ONLY
+
+    elif v in {"v11", "geo_only"}:
+        keep = GEO_ONLY
+
+    elif v in {"v12", "host_behavior"}:
+        keep = HOST_BEHAVIOR
+
+    elif v in {"v13", "host_experience"}:
+        keep = HOST_EXPERIENCE
+
+    elif v in {"v14", "booking"}:
+        keep = BOOKING_FRICTION
+
+    elif v in {"v15", "capacity"}:
+        keep = CAPACITY
+
+    elif v in {"v16", "quality_signal"}:
+        keep = QUALITY_SIGNAL
+
+    elif v in {"v17", "no_structure"}:
+        keep = cols_set - PROPERTY_COLS
+
+    elif v in {"v18", "host_property"}:
+        keep = HOST_COLS | PROPERTY_COLS
+
+    elif v in {"v19", "host_no_superhost"}:
+        keep = HOST_NO_SUPERHOST
+
+    elif v in {"v20", "host_text"}:
+        keep = HOST_COLS | TEXT_COLS
+
+    elif v in {"v25", "no_geo_no_price"}:
+        keep = cols_set - GEO_COLS - PRICE_COLS
+
+
 
     else:
         raise ValueError(f"Unknown dataset_version '{dataset_version}'")
