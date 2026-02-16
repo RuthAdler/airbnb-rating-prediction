@@ -24,15 +24,23 @@ st.set_page_config(page_title="AirBnB Rating Predictor", page_icon="🏠")
 
 st.title("🏠 AirBnB Rating Predictor")
 
-# Load model
+@st.cache_resource
+def load_model():
+    model = joblib.load(MODEL_PATH)
+    return model
 
 try:
-    model = joblib.load(MODEL_PATH)
+    model = load_model()
     FEATURE_ORDER = model.feature_names_in_
     st.success(f"✓ Model loaded ({len(FEATURE_ORDER)} features)")
 except Exception as e:
     st.error(f"Model loading failed: {e}")
-    st.stop()
+    st.stop()@st.cache_resource
+def load_model():
+    model = joblib.load(MODEL_PATH)
+    return model
+
+load_model()
 
 
 # STEP 1 — Upload X and Predict
