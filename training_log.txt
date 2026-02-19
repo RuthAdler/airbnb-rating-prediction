@@ -1,6 +1,0 @@
-/Users/ruthadler/Desktop/airbnb-rating-prediction/run_llm.py:180: UserWarning: Parsing dates in %Y-%m-%d format when dayfirst=True was specified. Pass `dayfirst=False` or specify a format to silence this warning.
-  df2['host_since'] = pd.to_datetime(df2['host_since'], errors='coerce', dayfirst=True)
-/Users/ruthadler/Desktop/airbnb-rating-prediction/run_llm.py:180: UserWarning: Parsing dates in %Y-%m-%d format when dayfirst=True was specified. Pass `dayfirst=False` or specify a format to silence this warning.
-  df2['host_since'] = pd.to_datetime(df2['host_since'], errors='coerce', dayfirst=True)
-/Users/ruthadler/Desktop/airbnb-rating-prediction/run_llm.py:180: UserWarning: Parsing dates in %Y-%m-%d format when dayfirst=True was specified. Pass `dayfirst=False` or specify a format to silence this warning.
-  df2['host_since'] = pd.to_datetime(df2['host_since'], errors='coerce', dayfirst=True)
