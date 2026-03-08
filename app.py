@@ -1,6 +1,6 @@
 """
 AirBnB Rating Prediction App
-Model: v4
+Model: v5
 Workflow:
 1. Upload features (X) → get predictions
 2. Optional: upload true labels (Y) → evaluate model
@@ -35,12 +35,7 @@ try:
     st.success(f"✓ Model loaded ({len(FEATURE_ORDER)} features)")
 except Exception as e:
     st.error(f"Model loading failed: {e}")
-    st.stop()@st.cache_resource
-def load_model():
-    model = joblib.load(MODEL_PATH)
-    return model
-
-load_model()
+    st.stop()
 
 
 # STEP 1 — Upload X and Predict

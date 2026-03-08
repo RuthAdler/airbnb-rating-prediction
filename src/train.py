@@ -1,12 +1,12 @@
 """
-Train model v3 - with text keyword features (GenAI submission)
+Train the rating prediction model.
 
 Usage:
-    python -m src.train --data-dir data
+    python -m src.train --data-dir data --output-dir models
 
 Creates:
-    - models/model_v3.pkl
-    - models/feature_columns_v3.pkl
+    - models/model_<version>.pkl
+    - models/feature_columns_<version>.pkl
 """
 
 import argparse
@@ -121,8 +121,8 @@ def main(data_dir: str, output_dir: str = 'models', model_version: str = 'v0'):
     joblib.dump(best_model, f'{output_dir}/model_{model_version}.pkl')
     joblib.dump(FEATURE_COLUMNS, f'{output_dir}/feature_columns_{model_version}.pkl')
 
-    print(f"Saved: {output_dir}/model_{MODEL_VERSION}.pkl")
-    print(f"Saved: {output_dir}/feature_columns_{MODEL_VERSION}.pkl")
+    print(f"Saved: {output_dir}/model_{model_version}.pkl")
+    print(f"Saved: {output_dir}/feature_columns_{model_version}.pkl")
 
     return best_model
 
