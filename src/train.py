@@ -14,7 +14,7 @@ import pandas as pd
 from pathlib import Path
 from sklearn.linear_model import Ridge
 from sklearn.ensemble import GradientBoostingRegressor
-from sklearn.model_selection import cross_val_score, train_test_split
+from sklearn.model_selection import cross_val_score
 from sklearn.metrics import mean_squared_error
 import joblib
 from xgboost import XGBRegressor
@@ -59,10 +59,6 @@ def main(data_dir: str, output_dir: str = 'models', model_version: str = 'v0'):
     X = prep_features(df)
     y = df['review_scores_rating'].values
     print(f"Features: {len(FEATURE_COLUMNS)}")
-
-    #save data csv,
-    X.to_csv('data/X_train.csv', index=False)
-    pd.DataFrame({'review_scores_rating': y}).to_csv('data/y_train.csv', index=False)
 
     # Try multiple models
     print("\n=== Training Models ===")
