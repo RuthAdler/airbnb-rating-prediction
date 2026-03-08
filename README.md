@@ -1,24 +1,37 @@
 # AirBnB Listing Rating Prediction
 
-> DS in Production 2025-6, Nebius Academy IL
+Predicting `review_scores_rating` for AirBnB listings using listing, host, and text features — designed to generalize across cities.
 
 ---
 
-## Overview
+## Results
 
-This project predicts the average overall rating (`review_scores_rating`) of AirBnB listings. Trained on NYC and LA data, with the goal of generalizing to any city.
+| Evaluation Set | Baseline RMSE | Model RMSE | Improvement |
+|----------------|--------------|------------|-------------|
+| Chicago (validation) | 0.4058 | 0.378 | -6.8% |
+| Sydney (test) | 0.4412 | 0.4122 | -6.6% |
+
+**Model:** XGBoost (n_estimators=300, max_depth=4, learning_rate=0.05)
+**Training data:** Los Angeles (45,886 listings) + New York City (36,111 listings)
+**Challenge:** 72% of ratings fall between 4.5–5.0 (median: 4.82) — strong ceiling effect
+
+> Full analysis: [docs/report.pdf](docs/report.pdf) | [docs/presentation.pdf](docs/presentation.pdf)
 
 ---
 
-## Purpose
+## Features
 
-This project is part of the DS in Production course. The goal is to practice:
-- Structuring a Python project with proper folder organization
-- Separating code into reusable modules
-- Using Git workflow (branches, pull requests, code reviews)
-- Building code that generalizes to unseen data
+22 city-agnostic features, grouped by category:
 
-The instructor (`nebius-franz`) has been added as a collaborator and will test the project.
+| Category | Features |
+|----------|----------|
+| **Property** | accommodates, bathrooms, bedrooms, beds, room_ratio |
+| **Host** | host_response_rate, host_acceptance_rate, is_superhost, host_days_log, response_speed |
+| **Booking** | minimum_nights, instant_bookable |
+| **Text metadata** | has_description, desc_length, has_host_about, has_neighborhood, name_length |
+| **Keywords** | mentions_clean, mentions_luxury, mentions_view, mentions_location, mentions_modern |
+
+Price and geographic features were intentionally excluded — they hurt generalization to unseen cities.
 
 ---
 
@@ -26,41 +39,19 @@ The instructor (`nebius-franz`) has been added as a collaborator and will test t
 
 ```
 airbnb-rating-prediction/
-│
-├── data/
-│   ├── listings LA.csv
-│   ├── listings NYC.csv
-│   └── test/
-│       ├── TEST_SET_X.csv
-│       └── TEST_SET_Y.csv
-│
-├── models/                     # Trained artifacts & processed data
-│   ├── *.pkl                  # Model pipelines, feature columns
-│   └── processed/             # Intermediate train/test splits
-│
-├── notebooks/
-│   ├── airbnb_baseline.ipynb
-│   └── PClass1 AirBnB EDA.ipynb
-│
-├── scripts/                   # LLM & GenAI feature extraction
-│   ├── genai_features.py     # Embeddings + LLM scores extraction
-│   ├── feature_engineering_llm.py
-│   └── run_llm.py            # LLM-based feature extraction & training
-│
-├── src/                       # Core training & preprocessing
-│   ├── data_loading.py
-│   ├── features.py            # prep_features, feature engineering
-│   ├── feature_sets.py
-│   ├── train.py               # Main training script
-│   ├── baseline.py            # Dummy baseline model
-│   └── visualization.py
-│
-├── docs/
-│   └── features_used.txt      # Feature documentation
-│
-├── app.py                     # Streamlit inference app
-├── requirements.txt
-└── README.md
+├── data/                    # Not included (download separately)
+├── models/                  # Trained model artifacts (.pkl)
+├── notebooks/               # EDA and baseline experiments
+├── docs/                    # Report and presentation
+├── src/
+│   ├── data_loading.py      # Load and validate CSV datasets
+│   ├── features.py          # Feature engineering pipeline
+│   ├── feature_sets.py      # Feature ablation configurations
+│   ├── train.py             # Model training script
+│   └── baseline.py          # Dummy baseline model
+├── app.py                   # Streamlit inference app
+├── run_experiment.py        # W&B experiment tracking
+└── requirements.txt
 ```
 
 ---
@@ -71,101 +62,44 @@ airbnb-rating-prediction/
 git clone https://github.com/RuthAdler/airbnb-rating-prediction.git
 cd airbnb-rating-prediction
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-For LLM/GenAI features (optional):
-
-```bash
-pip install sentence-transformers requests
 ```
 
 ---
 
 ## Data
 
-Download the data files from [Google Drive](https://drive.google.com/drive/u/0/folders/1d-IlNVY2rgYmBh6G_4YDg37OhvPGceWK) and place them in the `data/` folder.
+Download listings CSVs from [Google Drive](https://drive.google.com/drive/u/0/folders/1d-IlNVY2rgYmBh6G_4YDg37OhvPGceWK) and place them in `data/`.
 
 ---
 
 ## Usage
 
-### Loading data
-
-```python
-from src.data_loading import load_all_listings, validate_columns_match
-
-datasets = load_all_listings("data")
-print(validate_columns_match(datasets))  # True
-```
-
-### Training a model
+### Train a model
 
 ```bash
 python -m src.train --data-dir data --output-dir models
 ```
 
-### Baseline model
+Evaluates Ridge, GradientBoosting, and XGBoost via 5-fold CV and saves the best model.
 
-```bash
-python -m src.baseline data
-```
-
-### LLM feature extraction & training
-
-```bash
-python scripts/run_llm.py --api-key YOUR_KEY --api-base YOUR_ENDPOINT --model MODEL_NAME
-```
-
-### Streamlit app
+### Run the Streamlit app
 
 ```bash
 streamlit run app.py
 ```
 
-Upload features (X) for predictions, or optionally upload true labels (Y) to evaluate the model.
+Upload a listings CSV to get predictions. Optionally upload true labels to evaluate RMSE against the dummy baseline.
 
----
-
-## Contributing
-
-### 1. Clone the repo (first time only)
+### Run experiments with W&B tracking
 
 ```bash
-git clone https://github.com/RuthAdler/airbnb-rating-prediction.git
-cd airbnb-rating-prediction
+python run_experiment.py --model xgboost --feature-set v0 --data-dir data
 ```
-
-### 2. Create your branch
-
-```bash
-git checkout -b feature/your-feature-name
-```
-
-Examples: `feature/geo-processing`, `feature/preprocessing`, `feature/visualization`
-
-### 3. Do your work
-
-Edit your file in `src/` or `scripts/`
-
-### 4. Commit and push
-
-```bash
-git add .
-git commit -m "Your message here"
-git push -u origin feature/your-feature-name
-```
-
-### 5. Open a Pull Request
-
-Go to GitHub and click "Compare & pull request". Ask a teammate to review.
 
 ---
 
 ## Team
 
-- Ruth Adler
-- Ido Friedmann
-- Ella Yakir
-- Rosemary Lavender
+Ruth Adler · Ido Friedmann · Ella Yakir · Rosemary Lavender
