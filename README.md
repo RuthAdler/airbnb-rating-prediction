@@ -13,7 +13,7 @@ Predicting `review_scores_rating` for AirBnB listings using listing, host, and t
 
 **Model:** XGBoost (n_estimators=300, max_depth=4, learning_rate=0.05)
 **Training data:** Los Angeles (45,886 listings) + New York City (36,111 listings)
-**Challenge:** 72% of ratings fall between 4.5–5.0 (median: 4.82) — strong ceiling effect
+**Challenge:** 72% of ratings fall between 4.5–5.0 (median: 4.82) - strong ceiling effect
 
 > Full analysis: [docs/report.pdf](docs/report.pdf) | [docs/presentation.pdf](docs/presentation.pdf)
 
