@@ -30,7 +30,6 @@ Predicting `review_scores_rating` for AirBnB listings using listing, host, and t
 | **Booking** | minimum_nights, instant_bookable |
 | **Text metadata** | has_description, desc_length, has_host_about, has_neighborhood, name_length |
 | **Keywords** | mentions_clean, mentions_luxury, mentions_view, mentions_location, mentions_modern |
-צ
 Price and geographic features were intentionally excluded - they hurt generalization to unseen cities.
 
 ---
