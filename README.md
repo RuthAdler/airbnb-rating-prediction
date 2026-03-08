@@ -21,16 +21,16 @@ Predicting `review_scores_rating` for AirBnB listings using listing, host, and t
 
 ## Features
 
-22 city-agnostic features, grouped by category:
+24 city-agnostic features, grouped by category:
 
 | Category | Features |
 |----------|----------|
-| **Property** | accommodates, bathrooms, bedrooms, beds, room_ratio |
+| **Property** | accommodates, bathrooms, bedrooms, beds, room_ratio, room_type, property_type |
 | **Host** | host_response_rate, host_acceptance_rate, is_superhost, host_days_log, response_speed |
 | **Booking** | minimum_nights, instant_bookable |
 | **Text metadata** | has_description, desc_length, has_host_about, has_neighborhood, name_length |
 | **Keywords** | mentions_clean, mentions_luxury, mentions_view, mentions_location, mentions_modern |
-
+צ
 Price and geographic features were intentionally excluded — they hurt generalization to unseen cities.
 
 ---
